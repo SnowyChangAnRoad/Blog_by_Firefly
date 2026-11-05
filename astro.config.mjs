@@ -23,6 +23,7 @@ import rehypeComponents from "rehype-components"; /* Render the custom directive
 import rehypeKatex from "rehype-katex";
 import rehypeSlug from "rehype-slug";
 import remarkAdmonitionToBlockquoteCallout from "remark-admonition-to-blockquote-callout";
+import remarkBreaks from "remark-breaks";
 import remarkDirective from "remark-directive"; /* Handle directives */
 import remarkMath from "remark-math";
 import remarkSectionize from "remark-sectionize";
@@ -286,6 +287,7 @@ export default defineConfig({
 	markdown: {
 		processor: unified({
 			remarkPlugins: [
+				remarkBreaks,
 				...(siteConfig.post.rehypeCallouts.enablePythonMarkdownAdmonitions !==
 				false
 					? [remarkAdmonitionToBlockquoteCallout]
