@@ -1,9 +1,9 @@
 # 博客迁移方案：FastAPI 站点 → Firefly 静态模板
 
-> **状态：方案已审核通过（v2），尚未开始动工。下一轮按第 14 节执行。**
+> **状态：Git 准备已完成（2026-11-05），内容迁移尚未开始。下一轮从第 14 节第 1 步开始。**
 >
-> - 版本：v2
-> - 编写日期：2026-11-04
+> - 版本：v3
+> - 编写日期：2026-11-04（2026-11-05 更新 Git 准备结果）
 > - 目标仓库：`c:\Users\xx\Desktop\git\Firefly`
 > - 旧站仓库：`C:\Users\xx\Desktop\git\blog`（**只读**，迁移期间不修改、不删除）
 > - 本文件用途：记录已确认的迁移决策与执行细节，防止上下文丢失；Agent 按本文件执行。
@@ -31,9 +31,17 @@
 | 15 | 访问地址 | **暂无域名**，先使用 `http://<服务器公网IP>`；后续有域名再切换并重新构建（见第 9.6 节） |
 | 16 | 换行处理 | **确认启用 `remark-breaks`**（新增依赖，行为对齐旧站 `nl2br`） |
 | 17 | 相册排序 | **确认先按文件名序号保序**；拖动排序作为 Phase 2 单独实现 |
-| 18 | 代码来源 | 当前是上游 `CuteLeaf/Firefly` 的 clone，**不能直接 push**；先 Fork/新建仓库并同步上游最新（见第 4.0 节） |
+| 18 | 代码来源 | 已 Fork 到 `SnowyChangAnRoad/Blog_by_Firefly`；`origin`=自己的 Fork，`upstream`=CuteLeaf/Firefly |
+| 19 | Git 准备 | **已完成**：提交本地改动 → rebase 到上游 `af8e98fd` → 推送 `master` → 创建 `migrate/blog` |
 
-> **重要发现（执行前必须处理）**：当前本地 `master` 停留在 `e6d2e535`（6.16.5），而上游 `origin/master` 已到 `af8e98fd`（6.16.9），**本地落后 64 个提交**。上游包含本项目说明书与迁移方案未覆盖的新能力（项目展示页、Atom、沉浸阅读、导航栏模式、`siteConfig.feed` 等）。因此执行顺序调整为：**先 Fork + 同步上游 → 重新核对 README/本方案 → 再迁移内容**。
+> **Git 准备结果（已完成）**：
+>
+> - `master` 当前为 `816fdda9`（上游 `af8e98fd` 6.16.9 + 1 个本地提交），工作区干净。
+> - `origin` 已指向 `git@github.com:SnowyChangAnRoad/Blog_by_Firefly.git`，`upstream` 指向 `git@github.com:CuteLeaf/Firefly.git`。
+> - 已推送 `master` 与 `migrate/blog`，当前处于 `migrate/blog` 分支。
+> - 冲突已解决：`README.md` 保留本地重写版本；`profileConfig.ts` 保留本地头像/名字，合并上游新增的 Atom 链接。
+> - `pnpm install` 与 `pnpm check` 均通过（0 errors / 0 warnings / 0 hints）。
+> - 上游 6.16.9 新增了项目展示页、Atom、沉浸阅读、导航栏模式、`siteConfig.feed` 等，**下一轮迁移前需重新核对 README 与本方案的字段/路径**。
 
 ---
 
@@ -121,9 +129,11 @@ dist/  ──  Nginx 静态托管（运行时无 Node/Python）
 
 ## 4. 迁移前准备
 
-### 4.0 仓库归属：先 Fork，再同步上游最新
+### 4.0 仓库归属：先 Fork，再同步上游最新（✅ 已完成 2026-11-05）
 
-**现状**：
+> 本节保留完整操作记录。实际结果见文首“Git 准备结果”。
+
+**初始状态（历史记录）**：
 
 ```text
 origin  git@github.com:CuteLeaf/Firefly.git   # 上游，无推送权限
@@ -903,9 +913,9 @@ pnpm preview
 
 ## 14. Agent 执行顺序（审核通过后）
 
-0. **Fork 上游并同步最新代码**（按第 4.0 节），然后重新核对 `README.md` 与本方案；发现上游字段/路径变化时先更新文档。
-1. 阅读本文件与 `README.md`，确认决策未变。
-2. 新建分支 `migrate/blog`。
+0. ✅ **已完成**：Fork 上游并同步最新代码（按第 4.0 节），已推送 `master` 与 `migrate/blog`。
+1. 重新核对 `README.md` 与本方案（上游 6.16.9 新增字段/页面）；发现变化先更新文档。
+2. 确认当前在 `migrate/blog` 分支（已创建并推送）。
 3. 删除演示文章及 `guide/`、`images/`；运行 `pnpm lqips`。
 4. 新建 4 篇文章（内容取自旧仓库，frontmatter 按第 5 节）。
 5. 删除演示相册；更新 `.gitignore`、`scripts/generate-lqips.ts`、`galleryConfig.ts`。
@@ -990,4 +1000,4 @@ public/gallery/            # 仅服务器存在，Git 忽略
 
 ---
 
-**v2 审核已完成**。下一轮从第 14 节的第 0 步开始：Fork 上游 → 同步最新 → 核对文档 → 迁移内容。部署前还需要你提供**服务器公网 IP**（域名可后补）。
+**Git 准备已完成**。下一轮从第 14 节第 1 步开始：核对最新文档 → 迁移文章/相册 → 本地验证。部署前还需要你提供**服务器公网 IP**（可先留空，后续再填）。
