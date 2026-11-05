@@ -47,3 +47,7 @@ package/
 .codex*
 .claude
 .mimocode
+
+# 相册原图：只存在服务器，不入库
+public/gallery/**
+!public/gallery/.gitkeep
