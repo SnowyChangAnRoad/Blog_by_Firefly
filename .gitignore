@@ -51,3 +51,6 @@ package/
 # 相册原图：只存在服务器，不入库
 public/gallery/**
 !public/gallery/.gitkeep
+
+# 音乐资源：音频与封面体积大，不入库，部署时单独上传
+public/assets/music/**

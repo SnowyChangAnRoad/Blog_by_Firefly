@@ -6,7 +6,7 @@ export const musicPlayerConfig: MusicPlayerConfig = {
 	showInNavbar: false,
 
 	// 是否在侧边栏显示音乐播放器组件
-	showInSidebar: false,
+	showInSidebar: true,
 
 	// 使用方式："meting" 使用 Meting API，"local" 使用本地音乐列表
 	mode: "local",
@@ -48,10 +48,66 @@ export const musicPlayerConfig: MusicPlayerConfig = {
 	local: {
 		playlist: [
 			{
-				name: "使一颗心免于哀伤",
-				artist: "知更鸟 / HOYO-MiX / Chevy",
-				url: "/assets/music/使一颗心免于哀伤-哼唱.mp3",
-				cover: "/assets/music/cover/109951169585655912.webp",
+				name: "踊り子",
+				artist: "Vaundy",
+				url: "/assets/music/Dancing_Girl(Jap).mp3",
+				cover: "/assets/music/cover/Dancing_Girl(Jap).jpg",
+				lrc: "",
+			},
+			{
+				name: "焚音打",
+				artist: "MyGO!!!!!",
+				url: "/assets/music/MyGO!!!!!_-_last_music.mp3",
+				cover: "/assets/music/cover/MyGO!!!!!_-_last_music.jpg",
+				lrc: "",
+			},
+			{
+				name: "You are My Curse",
+				artist: "Kotoha",
+				url: "/assets/music/Kotoha_-_You_are_My_Curse.mp3",
+				cover: "/assets/music/cover/Kotoha_-_You_are_My_Curse.jpg",
+				lrc: "",
+			},
+			{
+				name: "最美好前途(后朋克版)",
+				artist: "未知",
+				url: "/assets/music/Wondrous_Future-Post-punk.mp3",
+				cover: "/assets/music/cover/Wondrous_Future-Post-punk.png",
+				lrc: "",
+			},
+			{
+				name: "Красива",
+				artist: "",
+				url: "/assets/music/Beautiful.mp3",
+				cover: "/assets/music/cover/Beautiful.jpg",
+				lrc: "",
+			},
+			{
+				name: "Небо",
+				artist: "",
+				url: "/assets/music/Sky.mp3",
+				cover: "/assets/music/cover/Sky.jpg",
+				lrc: "",
+			},
+			{
+				name: "カタチのないもの",
+				artist: "",
+				url: "/assets/music/Shapeless.mp3",
+				cover: "/assets/music/cover/Shapeless.jpg",
+				lrc: "",
+			},
+			{
+				name: "葡萄成熟时",
+				artist: "",
+				url: "/assets/music/When_Grapes_Are_Ripe.mp3",
+				cover: "/assets/music/cover/When_Grapes_Are_Ripe.jpg",
+				lrc: "",
+			},
+			{
+				name: "那些你很冒险的梦",
+				artist: "",
+				url: "/assets/music/Those_Adventurous_Dreams.mp3",
+				cover: "/assets/music/cover/Those_Adventurous_Dreams.jpg",
 				lrc: "",
 			},
 		],

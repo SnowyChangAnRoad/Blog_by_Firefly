@@ -6,7 +6,7 @@
 >
 > 适用分支：`migrate/blog`（迁移完成后可合并回 `master`）
 >
-> 本文按“首次部署 → 验收 → 日常发文 → 备份回滚”的顺序编写，命令可直接复制执行。示例默认使用 `root` 登录服务器；若使用普通用户，请保证 `/var/www/firefly` 归该用户所有，并在需要时加 `sudo`。
+> 本文按“首次部署 → 验收 → 日常发文 → 备份回滚”的顺序编写，命令可直接复制执行。示例默认使用 `ubuntu` 普通用户登录（`ssh ubuntu@124.223.166.233`）。系统级操作（安装软件、修改 Nginx、重启服务）均标注 `sudo`；克隆、安装依赖、构建以 `ubuntu` 身份执行，不需要 `sudo`。
 
 ---
 
@@ -17,7 +17,7 @@
         │  scp / rsync 上传文章、配置、相册原图
         ▼
 云服务器 124.223.166.233
-/var/www/firefly/          # Git 仓库
+/var/www/blog_firefly/          # Git 仓库
 ├─ src/content/posts/      # 文章
 ├─ public/gallery/        # 相册原图（不入 Git，必须单独上传）
 ├─ dist/                  # 构建产物，Nginx 的 root
@@ -34,10 +34,22 @@ Nginx 读取 dist/，对外提供 http://124.223.166.233
 - **禁止在服务器执行 `git clean -fdx`**，否则会删除未入库的相册原图。
 - 站点使用尾斜杠（`/posts/hello-world/`），站内链接都带 `/`。
 - 当前无域名，只能使用 HTTP；`site_url` 已设为 `http://124.223.166.233`。
+- 服务器使用**稀疏浅克隆**：`public/pio` 未检出（看板娘已关闭，构建不需要），`public/gallery` 始终不在 Git 中。维护约定见 3.2 节。
 
 ---
 
 ## 2. 服务器前置
+
+默认使用 `ubuntu` 账号登录，不使用 root：
+
+```bash
+ssh ubuntu@124.223.166.233
+whoami                  # 预期输出 ubuntu
+getent passwd ubuntu    # 确认账号存在
+sudo -n true && echo "已配置免密 sudo" || echo "sudo 需要输入密码，仍可使用"
+```
+
+若镜像没有 `ubuntu` 用户（例如部分 CentOS / Debian 精简镜像），改用实际默认账号（常见为 `root` 或 `centos`），并把全文的 `ubuntu@` 替换成该账号。
 
 ### 2.1 系统与依赖
 
@@ -107,24 +119,30 @@ pnpm -v
 
 ### 步骤 1：准备目录并克隆仓库
 
-仓库已 Fork，公开可读，直接使用 HTTPS 克隆即可：
+仓库已 Fork，公开可读。**服务器只负责构建，不需要完整 Git 历史，使用浅克隆即可**：
 
 ```bash
-sudo mkdir -p /var/www/firefly
-sudo chown -R $USER:$USER /var/www/firefly
+sudo mkdir -p /var/www/blog_firefly
+sudo chown -R ubuntu:ubuntu /var/www/blog_firefly   # 目录归 ubuntu，后续 clone/install/build 都不需要 sudo
 
-git clone https://github.com/SnowyChangAnRoad/Blog_by_Firefly.git /var/www/firefly
-cd /var/www/firefly
-git switch migrate/blog
+git clone --depth 1 --branch migrate/blog --single-branch \
+  https://github.com/SnowyChangAnRoad/Blog_by_Firefly.git /var/www/blog_firefly
+cd /var/www/blog_firefly
 git log --oneline -3
 ```
 
+浅克隆只下载当前分支最新一次提交的文件，不下载上游历史。本仓库完整历史约 **128 MiB**，当前文件约 **24 MiB**，按 30 kB/s 估算：完整克隆约 70 分钟，浅克隆约 13 分钟。
+
 如果使用 `git@github.com:...` 形式，需要先在服务器生成 SSH key 并添加到 GitHub 仓库的 Deploy Key。
+
+> 后续更新代码时不要直接 `git pull`，用第 5 节的浅拉取命令。
+>
+> 如果浅克隆仍然很慢，见第 3.1 节的备选方案。
 
 ### 步骤 2：安装依赖
 
 ```bash
-cd /var/www/firefly
+cd /var/www/blog_firefly
 pnpm install --frozen-lockfile
 ```
 
@@ -137,29 +155,29 @@ pnpm install --frozen-lockfile
 服务器上先建目录：
 
 ```bash
-mkdir -p /var/www/firefly/public/gallery/net
-mkdir -p /var/www/firefly/public/gallery/scenery
+mkdir -p /var/www/blog_firefly/public/gallery/net
+mkdir -p /var/www/blog_firefly/public/gallery/scenery
 ```
 
 在本地 Windows PowerShell 执行（当前工作区已有一份可用的 `public/gallery`）：
 
 ```powershell
-scp -r .\public\gallery\net\* root@124.223.166.233:/var/www/firefly/public/gallery/net/
-scp -r .\public\gallery\scenery\* root@124.223.166.233:/var/www/firefly/public/gallery/scenery/
+scp -r .\public\gallery\net\* ubuntu@124.223.166.233:/var/www/blog_firefly/public/gallery/net/
+scp -r .\public\gallery\scenery\* ubuntu@124.223.166.233:/var/www/blog_firefly/public/gallery/scenery/
 ```
 
 如果本机安装了 `rsync`：
 
 ```bash
-rsync -avz public/gallery/net/ root@124.223.166.233:/var/www/firefly/public/gallery/net/
-rsync -avz public/gallery/scenery/ root@124.223.166.233:/var/www/firefly/public/gallery/scenery/
+rsync -avz public/gallery/net/ ubuntu@124.223.166.233:/var/www/blog_firefly/public/gallery/net/
+rsync -avz public/gallery/scenery/ ubuntu@124.223.166.233:/var/www/blog_firefly/public/gallery/scenery/
 ```
 
 上传后确认：
 
 ```bash
-ls /var/www/firefly/public/gallery/net
-ls /var/www/firefly/public/gallery/scenery
+ls /var/www/blog_firefly/public/gallery/net
+ls /var/www/blog_firefly/public/gallery/scenery
 ```
 
 应看到：
@@ -183,7 +201,7 @@ site_url: "http://124.223.166.233",
 ### 步骤 5：构建
 
 ```bash
-cd /var/www/firefly
+cd /var/www/blog_firefly
 pnpm build
 ```
 
@@ -200,14 +218,20 @@ ls dist/pagefind
 
 ### 步骤 6：配置 Nginx
 
-创建 `/etc/nginx/conf.d/firefly.conf`：
+`/etc/nginx` 属于系统目录，需要用 `sudo` 写入，例如：
+
+```bash
+sudo nano /etc/nginx/conf.d/blog_firefly.conf
+```
+
+写入以下内容：
 
 ```nginx
 server {
     listen 80;
     server_name 124.223.166.233;
 
-    root /var/www/firefly/dist;
+    root /var/www/blog_firefly/dist;
     index index.html;
     charset utf-8;
 
@@ -273,19 +297,139 @@ curl -I http://124.223.166.233/not-exist-page
 
 浏览器逐项确认：
 
-- [ ] 首页显示 4 篇文章，无演示文章
-- [ ] `/posts/hello-world/`、`/posts/dev-log/`、`/posts/pandemic-memories/`、`/posts/courage-and-happiness/` 可访问
-- [ ] 文章换行、表格、代码块、引用正常
-- [ ] `/archive/`、`/categories/`、`/tags/`、`/series/` 正常
-- [ ] `/gallery/` 只显示「好看的网图」「风景」
-- [ ] `/gallery/net/` 图片顺序为 moon → sovgirl1 → sovgirl2
-- [ ] `/gallery/scenery/` 顺序为 build_1…4 → flowers_1…2 → school_lake_1 → gools_1
-- [ ] 灯箱可打开，移动端瀑布流正常
-- [ ] `/about/` 显示占位内容
-- [ ] 友链、留言、动态、项目、书签、打赏入口不存在
-- [ ] `/rss.xml`、`/atom.xml`、`/sitemap-index.xml`、`/robots.txt` 可访问
-- [ ] `/search/` 能搜索到 4 篇文章
-- [ ] 查看网页源码，canonical / OG 链接为 `http://124.223.166.233/...`
+- [x] 首页显示 4 篇文章，无演示文章
+- [x] `/posts/hello-world/`、`/posts/dev-log/`、`/posts/pandemic-memories/`、`/posts/courage-and-happiness/` 可访问
+- [x] 文章换行、表格、代码块、引用正常
+- [x] `/archive/`、`/categories/`、`/tags/`、`/series/` 正常
+- [x] `/gallery/` 只显示「好看的网图」「风景」
+- [x] `/gallery/net/` 图片顺序为 moon → sovgirl1 → sovgirl2
+- [x] `/gallery/scenery/` 顺序为 build_1…4 → flowers_1…2 → school_lake_1 → gools_1
+- [x] 灯箱可打开，移动端瀑布流正常
+- [x] `/about/` 显示占位内容
+- [x] 友链、留言、动态、项目、书签、打赏入口不存在
+- [x] `/rss.xml`、`/atom.xml`、`/sitemap-index.xml`、`/robots.txt` 可访问
+- [x] `/search/` 能搜索到 4 篇文章
+- [x] 查看网页源码，canonical / OG 链接为 `http://124.223.166.233/...`
+
+### 3.1 克隆仍然很慢时的备选方案
+
+如果服务器访问 GitHub 只有 30 kB/s 左右，按顺序尝试：
+
+#### 方案 A：Gitee 镜像（国内服务器推荐）
+
+1. 登录 <https://gitee.com>，新建仓库 → 选择“导入已有仓库”。
+2. 填入 `https://github.com/SnowyChangAnRoad/Blog_by_Firefly.git`，创建。
+3. 在服务器从 Gitee 浅克隆：
+
+   ```bash
+   git clone --depth 1 --branch migrate/blog --single-branch \
+     https://gitee.com/<你的Gitee用户名>/Blog_by_Firefly.git /var/www/blog_firefly
+   ```
+
+4. 后续如果仍想从 GitHub 更新，可再添加远程：
+
+   ```bash
+   cd /var/www/blog_firefly
+   git remote rename origin gitee
+   git remote add origin https://github.com/SnowyChangAnRoad/Blog_by_Firefly.git
+   ```
+
+Gitee 导入是服务器主动拉取，通常比服务器直连 GitHub 快；导入完成后，服务器从 Gitee 下载基本走国内线路。
+
+#### 方案 B：下载源码压缩包（不需要 Git 历史）
+
+服务器只构建、不维护代码历史时可以直接下载当前快照：
+
+```bash
+sudo mkdir -p /var/www/blog_firefly
+sudo chown -R ubuntu:ubuntu /var/www/blog_firefly
+
+curl -L --retry 3 --progress-bar \
+  -o /tmp/firefly.tar.gz \
+  https://codeload.github.com/SnowyChangAnRoad/Blog_by_Firefly/tar.gz/refs/heads/migrate/blog
+
+tar -xzf /tmp/firefly.tar.gz -C /var/www/blog_firefly --strip-components=1
+```
+
+压缩包只包含当前分支的最新文件（不含历史）。缺点是没有 `.git`，后续更新需要重新下载压缩包，或执行：
+
+```bash
+cd /var/www/blog_firefly
+git init
+git remote add origin https://github.com/SnowyChangAnRoad/Blog_by_Firefly.git
+git fetch --depth 1 origin migrate/blog
+git reset --hard FETCH_HEAD
+```
+
+#### 方案 C：第三方 GitHub 加速地址（不推荐长期使用）
+
+可以使用 `ghproxy` 一类的加速前缀，例如：
+
+```bash
+git clone --depth 1 --single-branch --branch migrate/blog \
+  https://ghproxy.net/https://github.com/SnowyChangAnRoad/Blog_by_Firefly.git \
+  /var/www/blog_firefly
+```
+
+这类服务由第三方提供，地址可能失效，且会把仓库内容经过第三方服务器，只建议临时使用。仓库是公开内容，风险相对低，但仍需自行判断。
+
+> 不管用哪种方式，`public/gallery` 都不在仓库里，仍需按步骤 3 单独上传。
+
+### 3.2 稀疏克隆后的维护约定
+
+如果使用了方案 A（`--filter=blob:none --sparse`），服务器仓库**只检出以下目录**：
+
+```text
+根目录文件（package.json、astro.config.mjs、pnpm-lock.yaml 等）
+src/
+public/assets/
+public/favicon/
+scripts/
+docs/
+.github/
+```
+
+未检出的部分：
+
+| 路径 | 状态 | 说明 |
+| --- | --- | --- |
+| `public/pio/` | 未检出 | 看板娘模型（14.6 MiB），两种看板娘都已关闭，构建不需要 |
+| `public/gallery/` | 不在 Git | 相册原图，始终由你单独上传 |
+
+对部署的影响：**没有影响**。`pnpm build` 会正常生成 `dist/`，只是产物里不再包含看板娘资源；`prune-pio-assets.ts` 会提示没有可裁剪资源，这是正常现象。
+
+日常维护需要注意：
+
+1. **不要执行 `git sparse-checkout disable`**。它会尝试恢复全部文件，包括 14.6 MiB 的 `public/pio`，可能再次卡在慢速下载。
+
+2. 查看当前检出了哪些目录：
+
+   ```bash
+   git sparse-checkout list
+   ```
+
+3. 以后如果要启用看板娘：
+
+   ```bash
+   cd /var/www/blog_firefly
+   git sparse-checkout add public/pio
+   ```
+
+   然后把 `src/config/pioConfig.ts` 中 `live2dWidgetConfig.enable` 或 `spineModelConfig.enable` 改为 `true`，再 `pnpm build`。
+
+4. 用 Git 更新模板后，稀疏配置会保留。但**如果上游新增了新的顶层目录**（例如 `packages/`），默认不会检出，需要手动加入：
+
+   ```bash
+   git sparse-checkout add packages
+   ```
+
+   同理，如果上游新增了 `public/` 下的其他子目录（例如 `public/images/`），也需要 `git sparse-checkout add public/images`。
+
+5. 文章更新仍然按第 4 节用 `scp` / `rsync` 上传，不受稀疏检出影响。
+
+6. `git reset --hard FETCH_HEAD` 不会删除 `public/gallery`，也不会改变稀疏配置；继续遵守“禁止 `git clean -fdx`”。
+
+> 已经检出的 `public/assets/` 包含音乐、字体、图片等资源；`public/assets/music` 虽然当前播放器关闭，但文件仍在，未来启用音乐时无需额外操作。
 
 ---
 
@@ -324,20 +468,20 @@ pnpm dev
 在本地 Windows PowerShell：
 
 ```powershell
-scp -r .\src\content\posts\* root@124.223.166.233:/var/www/firefly/src/content/posts/
+scp -r .\src\content\posts\* ubuntu@124.223.166.233:/var/www/blog_firefly/src/content/posts/
 ```
 
 或使用 rsync（不删除服务器上的其他文章）：
 
 ```bash
-rsync -avz src/content/posts/ root@124.223.166.233:/var/www/firefly/src/content/posts/
+rsync -avz src/content/posts/ ubuntu@124.223.166.233:/var/www/blog_firefly/src/content/posts/
 ```
 
 ### 4.3 服务器构建
 
 ```bash
-ssh root@124.223.166.233
-cd /var/www/firefly
+ssh ubuntu@124.223.166.233
+cd /var/www/blog_firefly
 pnpm build
 ```
 
@@ -365,15 +509,13 @@ Nginx 直接读取 `dist/`，不需要重启 Nginx。
 
 ## 5. 用 Git 更新模板代码
 
-服务器仓库也可以直接 `git pull` 同步模板更新。由于构建会改写生成文件，拉取前先还原它们：
+服务器是浅克隆（`--depth 1`），更新时保持浅拉取即可：
 
 ```bash
-cd /var/www/firefly
+cd /var/www/blog_firefly
 
-# 构建会改写这些生成文件，先还原避免 pull 冲突
-git checkout -- src/constants/lqips.json src/constants/github-card-data.json
-
-git pull
+git fetch --depth 1 origin migrate/blog
+git reset --hard FETCH_HEAD
 
 # package.json / pnpm-lock.yaml 有变化时
 pnpm install --frozen-lockfile
@@ -381,11 +523,13 @@ pnpm install --frozen-lockfile
 pnpm build
 ```
 
-注意事项：
+说明：
 
-- 不要执行 `git clean -fdx`。
-- 如果 `git pull` 仍提示本地修改冲突，先 `git status` 确认是不是构建生成文件，再按上面的方式还原。
-- 如果后续频繁用 Git 更新，可给生成文件设置 `skip-worktree`，但首次部署不必处理。
+- `git reset --hard` 会覆盖被构建改写的生成文件（`lqips.json`、`github-card-data.json` 等），因此不需要再手动 `git checkout --`。
+- `git reset --hard` **只影响已跟踪文件**，不会删除未入库的 `public/gallery/`。
+- **不要执行 `git clean -fdx`**，否则会删除相册原图。
+- 如果远程名改成了 `gitee`，把上面的 `origin` 换成 `gitee`。
+- 如果使用第 3.1 节方案 B（源码压缩包，没有 `.git`），更新时重新下载压缩包覆盖即可，覆盖前先备份 `public/gallery/`。
 
 ---
 
@@ -394,7 +538,7 @@ pnpm build
 ### 6.1 备份
 
 ```bash
-cd /var/www/firefly
+cd /var/www/blog_firefly
 
 # 相册原图（最重要，不在 Git 中）
 tar -czf ~/firefly-gallery-$(date +%F).tar.gz public/gallery
@@ -403,7 +547,7 @@ tar -czf ~/firefly-gallery-$(date +%F).tar.gz public/gallery
 cp -a dist dist.bak
 
 # Nginx 配置
-sudo cp /etc/nginx/conf.d/firefly.conf ~/firefly-nginx-$(date +%F).conf
+sudo cp /etc/nginx/conf.d/blog_firefly.conf ~/firefly-nginx-$(date +%F).conf
 ```
 
 建议定期把 `~/firefly-gallery-*.tar.gz` 下载到本地或对象存储。
@@ -413,7 +557,7 @@ sudo cp /etc/nginx/conf.d/firefly.conf ~/firefly-nginx-$(date +%F).conf
 如果新构建异常：
 
 ```bash
-cd /var/www/firefly
+cd /var/www/blog_firefly
 rm -rf dist
 mv dist.bak dist
 sudo systemctl reload nginx
@@ -422,7 +566,7 @@ sudo systemctl reload nginx
 如果代码层面异常：
 
 ```bash
-cd /var/www/firefly
+cd /var/www/blog_firefly
 git log --oneline -5
 git checkout <上一个正常提交>
 pnpm install --frozen-lockfile
@@ -469,7 +613,7 @@ pnpm build
 | 现象 | 排查 |
 | --- | --- |
 | 首页 502/无法连接 | Nginx 是否启动、80 端口是否放行、云安全组是否开放 |
-| 首页 404 | Nginx `root` 是否指向 `/var/www/firefly/dist`，`dist/index.html` 是否存在 |
+| 首页 404 | Nginx `root` 是否指向 `/var/www/blog_firefly/dist`，`dist/index.html` 是否存在 |
 | 相册页为空或封面 404 | `public/gallery/net`、`public/gallery/scenery` 是否有图片，是否在**上传图片后**重新构建 |
 | 图片 403 | 目录权限；确保 `public/gallery` 对运行 Nginx 的用户可读 |
 | 新文章不显示 | 是否上传到 `src/content/posts/`，是否在服务器执行了 `pnpm build` |
@@ -478,6 +622,7 @@ pnpm build
 | `git pull` 冲突 | 先还原 `src/constants/lqips.json`、`src/constants/github-card-data.json` |
 | `git clean -fdx` 后相册消失 | 该命令会删除未入库文件；从备份恢复 `public/gallery` |
 | 页面样式错乱 | 是否直接修改了 `dist/`；应修改 `src/` 后重新构建 |
+| 构建报 `CannotFetchFontFile` / 字体下载失败 | 多为服务器访问 `cdn.jsdelivr.net` 临时失败，可先重试；持续失败时考虑自托管字体或配置可用的网络代理 |
 
 ---
 
@@ -489,8 +634,9 @@ pnpm build
 | `siteConfig.site_url` | `http://124.223.166.233` |
 | 部署分支 | `migrate/blog` |
 | 仓库 | `https://github.com/SnowyChangAnRoad/Blog_by_Firefly.git` |
-| Nginx root | `/var/www/firefly/dist` |
-| 相册目录 | `/var/www/firefly/public/gallery/{net,scenery}` |
+| 克隆方式 | 稀疏浅克隆（`--filter=blob:none --sparse`，不检出 `public/pio`） |
+| Nginx root | `/var/www/blog_firefly/dist` |
+| 相册目录 | `/var/www/blog_firefly/public/gallery/{net,scenery}` |
 | 页面开关 | 相册、关于开启；友链、留言、动态、项目、书签、打赏、追番等关闭 |
 | 评论 | 未启用（`commentConfig.type = "none"`） |
 | 访问协议 | HTTP（无域名，暂不启用 HTTPS） |
@@ -499,13 +645,13 @@ pnpm build
 
 ## 10. 首次部署执行清单
 
-- [ ] 服务器已安装 Node >= 22.23.0、pnpm 11.22.0、Git、rsync、Nginx
-- [ ] 云安全组与系统防火墙已放行 80 端口
-- [ ] 仓库已克隆到 `/var/www/firefly`，并切换到 `migrate/blog`
-- [ ] `pnpm install --frozen-lockfile` 成功
-- [ ] `public/gallery/net`、`public/gallery/scenery` 图片已上传（3 + 8 张）
-- [ ] `siteConfig.site_url` 为 `http://124.223.166.233`
-- [ ] `pnpm build` 成功，`dist/`、`dist/pagefind/` 已生成
-- [ ] Nginx 配置已写入并通过 `nginx -t`
+- [x] 服务器已安装 Node >= 22.23.0、pnpm 11.22.0、Git、rsync、Nginx
+- [x] 云安全组与系统防火墙已放行 80 端口
+- [x] 仓库已克隆到 `/var/www/blog_firefly`，并切换到 `migrate/blog`
+- [x] `pnpm install --frozen-lockfile` 成功
+- [x] `public/gallery/net`、`public/gallery/scenery` 图片已上传（3 + 8 张）
+- [x] `siteConfig.site_url` 为 `http://124.223.166.233`
+- [x] `pnpm build` 成功，`dist/`、`dist/pagefind/` 已生成
+- [x] Nginx 配置已写入并通过 `nginx -t`
 - [ ] 首页、4 篇文章、2 个相册、RSS、Sitemap、404 均验证通过
 - [ ] `public/gallery` 已做第一份备份

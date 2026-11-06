@@ -1,6 +1,6 @@
 ---
-title: 叮咚鸡大狗叫——疫情回忆
-published: 2026-08-22
+title: 疫情回忆
+published: 2026-08-23
 description: 个人对疫情时代的一些回忆记录
 slug: pandemic-memories
 draft: false

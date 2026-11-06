@@ -6,7 +6,7 @@ slug: hello-world
 draft: false
 ---
 
-欢迎来到我的个人博客！本站由 **FastAPI** 驱动，文章用 Markdown 编写，对话页接入了 DeepSeek 大模型。
+欢迎来到我的个人博客！
 
 ## 我能做什么
 
