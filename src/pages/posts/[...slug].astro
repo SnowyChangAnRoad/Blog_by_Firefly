@@ -503,7 +503,7 @@ const seriesData = await getSeriesPosts(entry);
           }
 
           {
-            licenseConfig.enable && (
+            licenseConfig.enable && licenseConfig.showInPost && (
               <License
                 title={entry.data.title}
                 id={entry.id}
@@ -593,7 +593,7 @@ const seriesData = await getSeriesPosts(entry);
           }
 
           {
-            licenseConfig.enable && (
+            licenseConfig.enable && licenseConfig.showInPost && (
               <License
                 title={entry.data.title}
                 id={entry.id}

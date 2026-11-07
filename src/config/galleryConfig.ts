@@ -18,14 +18,20 @@ export const galleryConfig: GalleryConfig = {
 		{
 			id: "net",
 			name: "好看的网图",
-			description: "从互联网上收集的好看的网图",
+			description: "从互联网上收集的漂亮图片",
 			cover: "/gallery/net/01-moon.jpg",
 		},
 		{
 			id: "scenery",
 			name: "风景",
-			description: "收集的一些自然风光照片，含山川、湖泊、城市夜景。",
+			description: "拍摄的一些自然风光照片",
 			cover: "/gallery/scenery/01-build_1.jpg",
+		},
+		{
+			id: "two-dimensional",
+			name: "二次元",
+			description: "一些漂亮的二次元图片",
+			cover: "/gallery/two-dimensional/02-Anon-1.jpg",
 		},
 	],
 

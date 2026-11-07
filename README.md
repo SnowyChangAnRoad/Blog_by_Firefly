@@ -442,7 +442,7 @@ import { siteConfig, sidebarLayoutConfig } from "@/config";
 | `friendsConfig.ts` | `friendsPageConfig`、`friendsConfig`、`getEnabledFriends` | 友链页面选项、友链列表、权重/随机排序 |
 | `galleryConfig.ts` | `galleryConfig` | 相册列表、封面、密码、瀑布流列宽 |
 | `booknavConfig.ts` | `booknavPageConfig`、`booknavConfig` | 书签导航分组与条目、favicon 自动获取 |
-| `licenseConfig.ts` | `licenseConfig` | 文章许可证名称、链接、图标 |
+| `licenseConfig.ts` | `licenseConfig` | 文章许可证名称、链接、图标、是否在文章末尾显示许可栏 |
 | `mermaidConfig.ts` | `mermaidConfig` | Mermaid 亮/暗主题 |
 | `musicConfig.ts` | `musicPlayerConfig` | 导航栏/侧边栏入口、Meting 或本地歌单、播放模式、歌词 |
 | `pioConfig.ts` | `live2dWidgetConfig`、`spineModelConfig` | Live2D / Spine 看板娘开关、模型、位置、尺寸、交互 |
@@ -469,7 +469,7 @@ import { siteConfig, sidebarLayoutConfig } from "@/config";
 | 列表/网格布局、封面位置、元数据 | `siteConfig.postListLayout` |
 | 每页文章数 | `siteConfig.pagination.postsPerPage` |
 | 提醒框主题 | `siteConfig.post.rehypeCallouts` |
-| 上次编辑卡片、分享海报、OG 图 | `siteConfig.post` |
+| 上次编辑卡片、文章末尾分享栏、分享海报、OG 图 | `siteConfig.post` |
 | 媒体页账号/模式/NSFW | `siteConfig.bilibili`、`bangumi`、`vndb`、`mal` |
 | 图片格式/质量/防盗链 | `siteConfig.imageOptimization` |
 | 页面开关 | `siteConfig.pages` |
@@ -490,7 +490,7 @@ import { siteConfig, sidebarLayoutConfig } from "@/config";
 | `backgroundWallpaper.common.homeText` | `title`、`subtitle`、`links` | 首页横幅文案与社交图标 |
 | `profileConfig` | `avatar`、`name`、`bio`、`links` | 侧边栏/关于页的作者信息 |
 | `footerConfig` + `FooterConfig.html` | — | 页脚自定义内容（备案号等） |
-| `licenseConfig` | `name`、`url` | 文章默认许可证 |
+| `licenseConfig` | `enable`、`showInPost`、`name`、`url` | 许可证开关、文章末尾许可栏、默认许可证 |
 | `commentConfig` | `type` 及各服务字段 | 评论系统 |
 | `analyticsConfig` | 各统计 ID | 访问统计 |
 

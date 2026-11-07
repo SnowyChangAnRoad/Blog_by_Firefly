@@ -1,8 +1,11 @@
 import type { LicenseConfig } from "../types/licenseConfig";
 
 export const licenseConfig: LicenseConfig = {
-	// 是否启用文章顶部许可证信息显示
+	// 是否启用许可证信息（同时影响侧边栏站点信息中的“文章许可”展示）
 	enable: true,
+
+	// 是否在文章末尾显示“作者 / 发布日期 / 许可协议”栏
+	showInPost: false,
 
 	// 许可证名称及链接
 	name: "CC BY-NC-SA 4.0",
