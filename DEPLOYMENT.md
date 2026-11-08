@@ -429,7 +429,7 @@ docs/
 
 6. `git reset --hard FETCH_HEAD` 不会删除 `public/gallery`，也不会改变稀疏配置；继续遵守“禁止 `git clean -fdx`”。
 
-> 已经检出的 `public/assets/` 包含音乐、字体、图片等资源；`public/assets/music` 虽然当前播放器关闭，但文件仍在，未来启用音乐时无需额外操作。
+> 已经检出的 `public/assets/` 包含音乐、字体、图片等资源；`public/assets/music` 已被 `.gitignore` 忽略，不随 Git 更新，音频和封面需按 4.4 手动上传。
 
 ---
 
@@ -497,13 +497,119 @@ Nginx 直接读取 `dist/`，不需要重启 Nginx。
 
 | 修改内容 | 操作 |
 | --- | --- |
-| 新增相册图片 | 上传到 `public/gallery/<albumId>/`，然后 `pnpm build` |
+| 新增相册图片 | 先运行 `pnpm optimize-gallery` 压缩，再上传 `.webp` 并 `pnpm build` |
 | 修改站点配置 | 上传 `src/config/*` 对应文件，然后 `pnpm build` |
 | 修改依赖 | 服务器先 `pnpm install`，再 `pnpm build` |
 | 删除文章 | 本地删除后，服务器手动删除对应文件，再 `pnpm build` |
 | 修改相册封面/名称 | 修改 `src/config/galleryConfig.ts`，上传后重新构建 |
 
 > `scp` / `rsync` 默认不会删除服务器上多出来的旧文件，删除文章需要手动处理。
+
+#### 相册图片压缩与上传
+
+`public/gallery/` 已被 `.gitignore` 忽略，图片只能手动上传。**不要直接上传原图**：原图单张可能 2–6 MB，整页会到几十 MB。
+
+标准流程：
+
+**1. 本地放入原图**
+
+```text
+public/gallery/<albumId>/01-xxx.jpg
+```
+
+文件名使用两位数字前缀控制顺序，尽量只用小写字母、数字、连字符。
+
+**2. 本地压缩**
+
+```bash
+pnpm optimize-gallery
+```
+
+脚本会：
+
+- 把原图转成 WebP（最长边 1920px，质量 80）
+- 把原图移动到 `.gallery-originals/<albumId>/` 备份（已被 Git 忽略）
+- 自动把 `galleryConfig.ts` 中指向旧扩展名的封面路径改成 `.webp`
+- 跳过已经符合要求的 WebP 和 GIF 动图
+
+需要强制重新压缩全部图片时：
+
+```bash
+pnpm optimize-gallery --force
+```
+
+**3. 本地预览**
+
+```bash
+pnpm dev
+```
+
+确认 `/gallery/<albumId>/` 顺序、封面、灯箱正常。相册图片不入库，`galleryConfig.ts` 的封面改动需要提交。
+
+**4. 上传到服务器**
+
+服务器先建目录（首次或新增相册时）：
+
+```bash
+mkdir -p /var/www/blog_firefly/public/gallery/<albumId>
+```
+
+本地 PowerShell：
+
+```powershell
+$albumId = "two-dimensional"    # 改成自己的相册 id
+scp -r .\public\gallery\$albumId\* ubuntu@124.223.166.233:/var/www/blog_firefly/public/gallery/$albumId/
+```
+
+推荐用 rsync 镜像整个相册目录，`--delete` 会删除服务器上已被替换的旧 `.jpg/.png`：
+
+```bash
+rsync -avz --progress --delete public/gallery/two-dimensional/ ubuntu@124.223.166.233:/var/www/blog_firefly/public/gallery/two-dimensional/
+```
+
+**5. 服务器重新构建**
+
+```bash
+cd /var/www/blog_firefly
+pnpm build
+ls dist/gallery/<albumId>/
+```
+
+注意：
+
+- 目录名必须与 `src/config/galleryConfig.ts` 里的 `id` 完全一致；
+- 新增相册除了传图，还要在 `galleryConfig.ts` 的 `albums` 数组中登记；
+- 修改过的 `galleryConfig.ts` 需要通过 Git 或 scp 同步到服务器；
+- 压缩前原图保存在本地 `.gallery-originals/`，请勿删除，必要时可重新生成；
+- 服务器上只需要保留压缩后的 `.webp`，不要保留原图，否则会白白占用带宽和磁盘。
+
+#### 上传音乐
+
+`public/assets/music/**` 同样被 `.gitignore` 忽略，音频和封面需手动上传：
+
+```powershell
+# 本地 PowerShell 执行
+scp .\public\assets\music\*.mp3 ubuntu@124.223.166.233:/var/www/blog_firefly/public/assets/music/
+scp -r .\public\assets\music\cover\* ubuntu@124.223.166.233:/var/www/blog_firefly/public/assets/music/cover/
+```
+
+服务器目录不存在时先创建：
+
+```bash
+mkdir -p /var/www/blog_firefly/public/assets/music/cover
+```
+
+```bash
+# 服务器上构建并验证
+cd /var/www/blog_firefly
+pnpm build
+ls dist/assets/music/
+```
+
+注意：
+
+- 新增歌曲需同时修改 `src/config/musicConfig.ts` 的播放列表，配置走 Git 或 scp 上传；
+- 文件名含中文或空格时，PowerShell 命令中要用双引号包住路径。
 
 ---
 

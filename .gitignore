@@ -52,6 +52,9 @@ package/
 public/gallery/**
 !public/gallery/.gitkeep
 
+# 相册压缩前的原图备份
+.gallery-originals/
+
 # 音乐资源：音频与封面体积大，不入库，部署时单独上传
 public/assets/music/**
 
