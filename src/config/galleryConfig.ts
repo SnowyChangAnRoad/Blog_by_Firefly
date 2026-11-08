@@ -19,7 +19,7 @@ export const galleryConfig: GalleryConfig = {
 			id: "net",
 			name: "好看的网图",
 			description: "从互联网上收集的漂亮图片",
-			cover: "/gallery/net/01-moon.webp",
+			cover: "/gallery/net/09-scen_1.webp",
 		},
 		{
 			id: "scenery",

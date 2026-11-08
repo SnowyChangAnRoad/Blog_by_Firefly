@@ -1,16 +1,14 @@
 ---
-import type { CollectionEntry } from "astro:content";
-import { getPostUrlBySlug } from "@utils/url-utils";
+import SeriesCard from "@/components/layout/SeriesCard.astro";
 import PostCard from "@/components/layout/PostCard.astro";
 import { siteConfig } from "@/config";
+import type { HomeFeedItem } from "@/utils/content-utils";
+import { getPostUrlBySlug, url } from "@/utils/url-utils";
 
 const { page } = Astro.props;
 
 let delay = 0;
 const interval = 50;
-
-// 类型别名避免Fragment语法问题
-type PostEntry = CollectionEntry<"posts">;
 
 const masonryEnabled = siteConfig.postListLayout.grid.masonry;
 const columnWidth = siteConfig.postListLayout.grid.columnWidth || 280;
@@ -39,25 +37,38 @@ const coverPositionClass =
   style={`--post-card-min-width: ${columnWidth}px;`}
 >
   {
-    page.data.map((entry: PostEntry, index: number) => (
-      <PostCard
-        entry={entry}
-        title={entry.data.title}
-        tags={entry.data.tags}
-        category={entry.data.category}
-        published={entry.data.published}
-        updated={entry.data.updated}
-        url={getPostUrlBySlug(entry.id)}
-        image={entry.data.image}
-        description={entry.data.description}
-        draft={entry.data.draft}
-        pinned={entry.data.pinned}
-        password={!!entry.data.password}
-        loading={index < 2 ? "eager" : "lazy"}
-        class:list="onload-animation post-card-item"
-        style={`animation-delay: calc(var(--content-delay) + ${delay++ * interval}ms);`}
-      />
-    ))
+    page.data.map((item: HomeFeedItem, index: number) =>
+      item.kind === "series" ? (
+        <SeriesCard
+          name={item.name}
+          count={item.count}
+          description={item.description}
+          updated={item.updated}
+          pinned={item.pinned}
+          href={url("/series/")}
+          class:list="onload-animation post-card-item"
+          style={`animation-delay: calc(var(--content-delay) + ${delay++ * interval}ms);`}
+        />
+      ) : (
+        <PostCard
+          entry={item.entry}
+          title={item.entry.data.title}
+          tags={item.entry.data.tags}
+          category={item.entry.data.category}
+          published={item.entry.data.published}
+          updated={item.entry.data.updated}
+          url={getPostUrlBySlug(item.entry.id)}
+          image={item.entry.data.image}
+          description={item.entry.data.description}
+          draft={item.entry.data.draft}
+          pinned={item.entry.data.pinned}
+          password={!!item.entry.data.password}
+          loading={index < 2 ? "eager" : "lazy"}
+          class:list="onload-animation post-card-item"
+          style={`animation-delay: calc(var(--content-delay) + ${delay++ * interval}ms);`}
+        />
+      )
+    )
   }
 </div>
 

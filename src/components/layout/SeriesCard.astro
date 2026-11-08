@@ -1,0 +1,80 @@
+---
+import { Icon } from "astro-icon/components";
+import I18nKey from "@/i18n/i18nKey";
+import { i18n } from "@/i18n/translation";
+import { formatDateToYYYYMMDD } from "@/utils/date-utils";
+
+interface Props {
+	name: string;
+	count: number;
+	description: string;
+	updated: Date;
+	href: string;
+	pinned?: boolean;
+	class?: string;
+	style: string;
+}
+
+const {
+	name,
+	count,
+	description,
+	updated,
+	href,
+	pinned = false,
+	style,
+} = Astro.props;
+const className = Astro.props.class;
+---
+
+<div
+  class:list={[
+    "series-card-wrapper card-base w-full rounded-(--radius-large) overflow-hidden relative",
+    pinned ? "pinned" : "",
+    className,
+  ]}
+  style={style}
+>
+  <a
+    href={href}
+    class="group flex items-center gap-4 md:gap-5 p-5 md:p-7 h-full transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
+  >
+    <div
+      class="shrink-0 w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-(--primary)/10 text-(--primary) flex items-center justify-center transition-colors group-hover:bg-(--primary)/20"
+    >
+      <Icon name="material-symbols:layers" class="text-3xl md:text-4xl" />
+    </div>
+
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 mb-1.5">
+        {pinned && (
+          <span class="inline-flex items-center gap-1 rounded-md bg-(--btn-regular-bg) text-(--btn-content) px-2 py-0.5 text-xs font-bold">
+            <Icon name="material-symbols:pinboard" class="text-sm" />
+            {i18n(I18nKey.pinned)}
+          </span>
+        )}
+        <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-(--primary)/10 text-(--primary)">
+          {i18n(I18nKey.series)}
+        </span>
+      </div>
+
+      <div class="font-bold text-xl md:text-2xl text-90 truncate transition-colors group-hover:text-(--primary)">
+        {name}
+      </div>
+
+      {description && (
+        <p class="text-sm text-75 mt-1 line-clamp-2">{description}</p>
+      )}
+
+      <div class="mt-2 flex items-center gap-3 text-xs text-50">
+        <span>{count} {i18n(I18nKey.postsCount)}</span>
+        <span>{i18n(I18nKey.updatedAt)} {formatDateToYYYYMMDD(updated)}</span>
+      </div>
+    </div>
+
+    <Icon
+      name="material-symbols:chevron-right-rounded"
+      class="shrink-0 text-2xl text-50 transition-transform group-hover:translate-x-0.5 group-hover:text-(--primary)"
+    />
+  </a>
+</div>

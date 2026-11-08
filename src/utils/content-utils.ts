@@ -40,6 +40,87 @@ export type PostForList = {
 	id: string;
 	data: CollectionEntry<"posts">["data"];
 };
+
+/**
+ * 首页信息流条目：普通文章，或折叠后的系列卡片
+ */
+export type HomeFeedItem =
+	| {
+			kind: "post";
+			entry: CollectionEntry<"posts">;
+			sortDate: Date;
+			pinned: boolean;
+	  }
+	| {
+			kind: "series";
+			name: string;
+			count: number;
+			description: string;
+			updated: Date;
+			sortDate: Date;
+			pinned: boolean;
+	  };
+
+/**
+ * 获取首页信息流：系列文章折叠成一张系列卡片，普通文章保持不变。
+ * 排序规则：置顶优先；同置顶状态下按“最新发布时间”降序；日期相同用标题/系列名兜底。
+ */
+export async function getHomeFeedItems(): Promise<HomeFeedItem[]> {
+	const posts = await getSortedPosts();
+	const items: HomeFeedItem[] = [];
+	const seriesGroups = new Map<string, CollectionEntry<"posts">[]>();
+
+	for (const post of posts) {
+		const seriesName = post.data.series.trim();
+		if (!seriesName) {
+			items.push({
+				kind: "post",
+				entry: post,
+				sortDate: new Date(post.data.published),
+				pinned: !!post.data.pinned,
+			});
+			continue;
+		}
+
+		if (!seriesGroups.has(seriesName)) {
+			seriesGroups.set(seriesName, []);
+		}
+		seriesGroups.get(seriesName)?.push(post);
+	}
+
+	for (const [name, seriesPosts] of seriesGroups) {
+		seriesPosts.sort(sortBySeriesOrder);
+		const first = seriesPosts[0];
+		const latest = seriesPosts.reduce((prev, current) =>
+			current.data.published.getTime() > prev.data.published.getTime()
+				? current
+				: prev,
+		);
+
+		items.push({
+			kind: "series",
+			name,
+			count: seriesPosts.length,
+			description: first.data.description || latest.data.description,
+			updated: new Date(latest.data.published),
+			sortDate: new Date(latest.data.published),
+			pinned: seriesPosts.some((post) => !!post.data.pinned),
+		});
+	}
+
+	items.sort((a, b) => {
+		if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+
+		const dateDiff = b.sortDate.getTime() - a.sortDate.getTime();
+		if (dateDiff !== 0) return dateDiff;
+
+		const labelA = a.kind === "series" ? a.name : a.entry.data.title;
+		const labelB = b.kind === "series" ? b.name : b.entry.data.title;
+		return labelA.localeCompare(labelB);
+	});
+
+	return items;
+}
 export async function getSortedPostsList(): Promise<PostForList[]> {
 	const sortedFullPosts = await getRawSortedPosts();
 
