@@ -256,6 +256,8 @@ server {
     # 普通页面与静态文件
     location / {
         try_files $uri $uri/ =404;
+        # HTML 不缓存：Astro 每次构建会更换资源哈希，旧 HTML 可能引用已删除的 CSS/JS
+        add_header Cache-Control "no-cache, must-revalidate" always;
     }
 
     # 自定义 404
@@ -276,6 +278,8 @@ sudo systemctl enable nginx
 sudo systemctl reload nginx
 ```
 
+> `location /` 里的 `Cache-Control: no-cache` 是必要的：Astro 每次构建都会生成新的哈希文件名（如 `Layout.xxxx.css`），旧文件会被删除。如果浏览器继续使用旧 HTML，就会请求已经不存在的旧资源并返回 404。
+
 ### 步骤 7：线上验收
 
 ```bash
@@ -283,7 +287,7 @@ curl -I http://124.223.166.233/
 curl -I http://124.223.166.233/posts/hello-world/
 curl -I http://124.223.166.233/gallery/
 curl -I http://124.223.166.233/gallery/net/
-curl -I http://124.223.166.233/gallery/net/01-moon.jpg
+curl -I http://124.223.166.233/gallery/net/01-moon.webp
 curl -I http://124.223.166.233/rss.xml
 curl -I http://124.223.166.233/sitemap-index.xml
 ```
@@ -293,6 +297,9 @@ curl -I http://124.223.166.233/sitemap-index.xml
 ```bash
 curl -I http://124.223.166.233/not-exist-page
 # 预期 404，并返回自定义 404 页面
+
+curl -I http://124.223.166.233/ | grep -i cache-control
+# 预期 cache-control: no-cache, must-revalidate
 ```
 
 浏览器逐项确认：
@@ -301,15 +308,17 @@ curl -I http://124.223.166.233/not-exist-page
 - [x] `/posts/hello-world/`、`/posts/dev-log/`、`/posts/pandemic-memories/`、`/posts/courage-and-happiness/` 可访问
 - [x] 文章换行、表格、代码块、引用正常
 - [x] `/archive/`、`/categories/`、`/tags/`、`/series/` 正常
-- [x] `/gallery/` 只显示「好看的网图」「风景」
+- [x] `/gallery/` 只显示「好看的网图」「风景」「二次元」
 - [x] `/gallery/net/` 图片顺序为 moon → sovgirl1 → sovgirl2
 - [x] `/gallery/scenery/` 顺序为 build_1…4 → flowers_1…2 → school_lake_1 → gools_1
 - [x] 灯箱可打开，移动端瀑布流正常
 - [x] `/about/` 显示占位内容
-- [x] 友链、留言、动态、项目、书签、打赏入口不存在
+- [x] `/dynamic/` 显示动态内容，侧边栏「最新动态」正常
+- [x] 友链、留言、项目、书签、打赏入口不存在
 - [x] `/rss.xml`、`/atom.xml`、`/sitemap-index.xml`、`/robots.txt` 可访问
 - [x] `/search/` 能搜索到 4 篇文章
 - [x] 查看网页源码，canonical / OG 链接为 `http://124.223.166.233/...`
+- [x] 刷新首页/相册后控制台没有 `Layout.*.css` 或 `*.js` 的 404
 
 ### 3.1 克隆仍然很慢时的备选方案
 
@@ -485,13 +494,33 @@ cd /var/www/blog_firefly
 pnpm build
 ```
 
-构建前建议备份上一版产物：
+Nginx 直接读取 `dist/`，不需要重启 Nginx。
+
+需要保留上一版产物用于回滚时，构建前执行：
 
 ```bash
 cp -a dist dist.bak
 ```
 
-Nginx 直接读取 `dist/`，不需要重启 Nginx。
+> 因为 Nginx 已经对 HTML 设置了 `Cache-Control: no-cache`，正常的刷新/跳转都会拿到新 HTML，直接 `pnpm build` 即可。只有在部署瞬间仍有用户停留于旧页面、且希望完全避免旧资源 404 时，才需要看下面的可选方案。
+
+#### 可选：保留上一版哈希资源
+
+如果访问量较大、部署比较频繁，可以在构建时保留上一版 `_astro` 哈希文件：
+
+```bash
+cd /var/www/blog_firefly
+
+rm -rf /tmp/firefly-astro-old
+cp -a dist/_astro /tmp/firefly-astro-old 2>/dev/null || true
+
+pnpm build
+
+rsync -a --ignore-existing /tmp/firefly-astro-old/ dist/_astro/
+find dist/_astro -type f -mtime +7 -delete
+```
+
+哈希文件名不会冲突，保留 7 天是安全的。个人博客通常可以跳过这一步。
 
 ### 4.4 其他更新
 
@@ -502,6 +531,7 @@ Nginx 直接读取 `dist/`，不需要重启 Nginx。
 | 修改依赖 | 服务器先 `pnpm install`，再 `pnpm build` |
 | 删除文章 | 本地删除后，服务器手动删除对应文件，再 `pnpm build` |
 | 修改相册封面/名称 | 修改 `src/config/galleryConfig.ts`，上传后重新构建 |
+| 新增/修改动态 | 编辑 `src/content/dynamic/` 后提交，服务器 `git pull && pnpm build` |
 
 > `scp` / `rsync` 默认不会删除服务器上多出来的旧文件，删除文章需要手动处理。
 
@@ -610,6 +640,107 @@ ls dist/assets/music/
 
 - 新增歌曲需同时修改 `src/config/musicConfig.ts` 的播放列表，配置走 Git 或 scp 上传；
 - 文件名含中文或空格时，PowerShell 命令中要用双引号包住路径。
+
+#### 动态维护
+
+动态是短内容，每条一个 Markdown 文件，存放在 `src/content/dynamic/`。与文章不同，**动态会正常提交到 Git**（没有加入 `.gitignore`）。
+
+**文件命名**
+
+```text
+src/content/dynamic/YYYY-MM-DD-HHmmss.md
+```
+
+文件名只用于唯一标识，页面显示的时间取自 frontmatter 的 `published`。
+
+**frontmatter**
+
+```yaml
+---
+published: 2026-11-10 21:03:10
+pinned: false
+location: ""
+---
+正文内容，支持 Markdown。
+```
+
+| 字段 | 必填 | 说明 |
+| --- | --- | --- |
+| `published` | 是 | 发布时间，格式 `YYYY-MM-DD HH:mm:ss` |
+| `pinned` | 否 | `true` 时置顶 |
+| `location` | 否 | 位置，显示在动态下方，留空则不显示 |
+
+排序规则：置顶优先，其余按 `published` 降序。
+
+**新增动态**
+
+推荐用脚手架，会自动按站点时区生成文件名和 `published`：
+
+```bash
+pnpm new-d "今天的一点想法"
+# 与 pnpm new-dynamic "今天的一点想法" 等价
+```
+
+也可以手动在 `src/content/dynamic/` 新建 md，注意文件名不要重复。
+
+**带图片的动态**
+
+正文使用标准 Markdown 图片语法：
+
+```md
+![描述](/assets/images/dynamic/photo.webp)
+```
+
+- 绝对路径指向 `public/`，图片需要单独上传；
+- 也可以直接使用远程 URL；
+- 构建时图片会从正文抽出，按图片列表单独渲染。
+
+**本地预览**
+
+```bash
+pnpm dev
+```
+
+检查 `/dynamic/` 页面和侧边栏「最新动态」的排序、图片、置顶是否正常。
+
+**上传与发布**
+
+动态已入库，服务器用 Git 更新最省事：
+
+```bash
+cd /var/www/blog_firefly
+git pull          # 或按第 5 节使用 fetch + reset
+pnpm build
+```
+
+如果只是临时在服务器上加一条、不想提交到仓库：
+
+```powershell
+# 本地 PowerShell 执行
+scp .\src\content\dynamic\2026-11-10-210310.md ubuntu@124.223.166.233:/var/www/blog_firefly/src/content/dynamic/
+```
+
+```bash
+# 服务器上构建
+cd /var/www/blog_firefly
+pnpm build
+```
+
+注意：第 5 节的 `git reset --hard` 会把服务器上的动态文件覆盖回仓库版本，服务器端临时新增的内容会丢失。长期维护建议始终在本地新增并提交。
+
+**删除动态**
+
+本地删除对应 md，提交后服务器执行 `git pull && pnpm build`；如果服务器上存在未入库的动态，需要手动删除后再构建。
+
+**相关配置**
+
+| 内容 | 位置 |
+| --- | --- |
+| 页面开关 | `src/config/siteConfig.ts` 的 `pages.dynamic` |
+| 导航入口 | `src/config/navBarConfig.ts` 的 `LinkPresets.Dynamic` |
+| 页面标题、每页数量、数据源 | `src/config/dynamicConfig.ts` |
+| 侧边栏「最新动态」 | `src/config/sidebarConfig.ts` 中 `type: "dynamic"` 的组件 |
+| 评论 | `src/config/commentConfig.ts`，`type: "none"` 时不显示 |
 
 ---
 
@@ -728,6 +859,7 @@ pnpm build
 | `git pull` 冲突 | 先还原 `src/constants/lqips.json`、`src/constants/github-card-data.json` |
 | `git clean -fdx` 后相册消失 | 该命令会删除未入库文件；从备份恢复 `public/gallery` |
 | 页面样式错乱 | 是否直接修改了 `dist/`；应修改 `src/` 后重新构建 |
+| 刷新后样式丢失，控制台 404 `Layout.*.css` | 旧 HTML 引用了已删除的哈希资源。确认 HTML 响应为 `Cache-Control: no-cache`；频繁部署时可选用 4.3 节的“保留上一版哈希资源” |
 | 构建报 `CannotFetchFontFile` / 字体下载失败 | 多为服务器访问 `cdn.jsdelivr.net` 临时失败，可先重试；持续失败时考虑自托管字体或配置可用的网络代理 |
 
 ---
@@ -742,8 +874,8 @@ pnpm build
 | 仓库 | `https://github.com/SnowyChangAnRoad/Blog_by_Firefly.git` |
 | 克隆方式 | 稀疏浅克隆（`--filter=blob:none --sparse`，不检出 `public/pio`） |
 | Nginx root | `/var/www/blog_firefly/dist` |
-| 相册目录 | `/var/www/blog_firefly/public/gallery/{net,scenery}` |
-| 页面开关 | 相册、关于开启；友链、留言、动态、项目、书签、打赏、追番等关闭 |
+| 相册目录 | `/var/www/blog_firefly/public/gallery/{net,scenery,two-dimensional}` |
+| 页面开关 | 动态、相册、关于开启；友链、留言、项目、书签、打赏、追番等关闭 |
 | 评论 | 未启用（`commentConfig.type = "none"`） |
 | 访问协议 | HTTP（无域名，暂不启用 HTTPS） |
 

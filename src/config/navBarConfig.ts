@@ -36,18 +36,14 @@ const getDynamicNavBarConfig = (): NavBarConfig => {
 		],
 	});
 
+	// 动态
+	links.push(LinkPresets.Dynamic);
+
 	// 相册
 	links.push(LinkPresets.Gallery);
 
 	// 关于
 	links.push(LinkPresets.About);
-
-	// RSS
-	links.push({
-		name: "RSS",
-		url: "/rss/",
-		icon: "fa7-solid:rss",
-	});
 
 	// 文档链接
 	// links.push({
