@@ -14,13 +14,14 @@
 
 ```text
 本地 Windows（写 Markdown、维护相册）
-        │  scp / rsync 上传文章、配置、相册原图
+        │  scp / rsync 上传文章、动态、配置、相册原图
         ▼
 云服务器 124.223.166.233
 /var/www/blog_firefly/          # Git 仓库
-├─ src/content/posts/      # 文章
-├─ public/gallery/        # 相册原图（不入 Git，必须单独上传）
-├─ dist/                  # 构建产物，Nginx 的 root
+├─ src/content/posts/      # 文章（不入 Git，必须单独上传）
+├─ src/content/dynamic/    # 动态（不入 Git，必须单独上传）
+├─ public/gallery/         # 相册原图（不入 Git，必须单独上传）
+├─ dist/                   # 构建产物，Nginx 的 root
 └─ node_modules/
         │  pnpm build
         ▼
@@ -29,9 +30,9 @@ Nginx 读取 dist/，对外提供 http://124.223.166.233
 
 关键约定：
 
-- **构建必须在服务器上执行**，因为相册图片只存在于服务器 `public/gallery/`。
-- `public/gallery/` 已被 `.gitignore` 忽略，`git pull` 不会覆盖或删除它。
-- **禁止在服务器执行 `git clean -fdx`**，否则会删除未入库的相册原图。
+- **构建必须在服务器上执行**，因为文章、动态、相册都只存在于服务器的内容目录中。
+- `src/content/posts/`、`src/content/dynamic/`、`public/gallery/` 均已被 `.gitignore` 忽略，`git pull` 不会覆盖或删除它们。
+- **禁止在服务器执行 `git clean -fdx`**，否则会删除未入库的文章、动态和相册原图。
 - 站点使用尾斜杠（`/posts/hello-world/`），站内链接都带 `/`。
 - 当前无域名，只能使用 HTTP；`site_url` 已设为 `http://124.223.166.233`。
 - 服务器使用**稀疏浅克隆**：`public/pio` 未检出（看板娘已关闭，构建不需要），`public/gallery` 始终不在 Git 中。维护约定见 3.2 节。
@@ -434,7 +435,7 @@ docs/
 
    同理，如果上游新增了 `public/` 下的其他子目录（例如 `public/images/`），也需要 `git sparse-checkout add public/images`。
 
-5. 文章更新仍然按第 4 节用 `scp` / `rsync` 上传，不受稀疏检出影响。
+5. 文章与动态更新仍然按第 4 节用 `scp` / `rsync` 上传，不受稀疏检出影响。
 
 6. `git reset --hard FETCH_HEAD` 不会删除 `public/gallery`，也不会改变稀疏配置；继续遵守“禁止 `git clean -fdx`”。
 
@@ -442,9 +443,11 @@ docs/
 
 ---
 
-## 4. 日常更新文章
+## 4. 日常更新文章与动态
 
 Firefly 是静态站点，**上传 Markdown 后必须重新构建**才会生效，不能像旧 FastAPI 那样“放进去就能看”。
+
+文章（`src/content/posts/`）与动态（`src/content/dynamic/`）都不入 Git，上传方式相同；动态的具体写法见 4.4 节的“动态维护”。
 
 ### 4.1 本地写文章
 
@@ -530,10 +533,12 @@ find dist/_astro -type f -mtime +7 -delete
 | 修改站点配置 | 上传 `src/config/*` 对应文件，然后 `pnpm build` |
 | 修改依赖 | 服务器先 `pnpm install`，再 `pnpm build` |
 | 删除文章 | 本地删除后，服务器手动删除对应文件，再 `pnpm build` |
+| 新增/修改动态 | 与文章相同，用 `scp` / `rsync` 上传到服务器 `src/content/dynamic/`，再 `pnpm build` |
+| 删除动态 | 本地与服务器同时删除对应 md，再 `pnpm build` |
 | 修改相册封面/名称 | 修改 `src/config/galleryConfig.ts`，上传后重新构建 |
-| 新增/修改动态 | 编辑 `src/content/dynamic/` 后提交，服务器 `git pull && pnpm build` |
 
-> `scp` / `rsync` 默认不会删除服务器上多出来的旧文件，删除文章需要手动处理。
+> `scp` / `rsync` 默认不会删除服务器上多出来的旧文件，删除文章或动态需要手动处理。
+> 文章与动态都不入 Git，服务器是唯一副本，改动后务必上传并重新构建。
 
 #### 相册图片压缩与上传
 
@@ -643,7 +648,7 @@ ls dist/assets/music/
 
 #### 动态维护
 
-动态是短内容，每条一个 Markdown 文件，存放在 `src/content/dynamic/`。与文章不同，**动态会正常提交到 Git**（没有加入 `.gitignore`）。
+动态是短内容，每条一个 Markdown 文件，存放在 `src/content/dynamic/`。与文章一致，**动态不提交到 Git**（`src/content/dynamic/**` 已加入 `.gitignore`，只保留 `.gitkeep`），需要单独上传到服务器。
 
 **文件命名**
 
@@ -705,32 +710,48 @@ pnpm dev
 
 **上传与发布**
 
-动态已入库，服务器用 Git 更新最省事：
-
-```bash
-cd /var/www/blog_firefly
-git pull          # 或按第 5 节使用 fetch + reset
-pnpm build
-```
-
-如果只是临时在服务器上加一条、不想提交到仓库：
+动态不入 Git，`git pull` 不会带来任何动态文件，必须手动上传：
 
 ```powershell
-# 本地 PowerShell 执行
+# 本地 PowerShell 执行，上传全部动态
+scp -r .\src\content\dynamic\* ubuntu@124.223.166.233:/var/www/blog_firefly/src/content/dynamic/
+```
+
+或只上传某一条：
+
+```powershell
 scp .\src\content\dynamic\2026-11-10-210310.md ubuntu@124.223.166.233:/var/www/blog_firefly/src/content/dynamic/
 ```
 
+使用 rsync 镜像整个目录（推荐，可断点续传）：
+
 ```bash
-# 服务器上构建
+rsync -avz --progress src/content/dynamic/ ubuntu@124.223.166.233:/var/www/blog_firefly/src/content/dynamic/
+```
+
+服务器上构建：
+
+```bash
+ssh ubuntu@124.223.166.233
 cd /var/www/blog_firefly
 pnpm build
 ```
 
-注意：第 5 节的 `git reset --hard` 会把服务器上的动态文件覆盖回仓库版本，服务器端临时新增的内容会丢失。长期维护建议始终在本地新增并提交。
+服务器目录不存在时先创建：
+
+```bash
+mkdir -p /var/www/blog_firefly/src/content/dynamic
+```
+
+注意：
+
+- 服务器上的动态是唯一副本，请定期备份 `src/content/dynamic/`，它对 Git 不可恢复；
+- 不要执行 `git clean -fdx`，会删除该目录下未入库的动态；
+- 新增带图片的动态时，正文引用的 `public/assets/images/dynamic/` 图片也要一并上传（见下方“带图片的动态”）。
 
 **删除动态**
 
-本地删除对应 md，提交后服务器执行 `git pull && pnpm build`；如果服务器上存在未入库的动态，需要手动删除后再构建。
+在本地和服务器上同时删除对应 md，然后在服务器执行 `pnpm build`。`scp` 不会删除文件，必须手动移除。
 
 **相关配置**
 
@@ -763,10 +784,10 @@ pnpm build
 说明：
 
 - `git reset --hard` 会覆盖被构建改写的生成文件（`lqips.json`、`github-card-data.json` 等），因此不需要再手动 `git checkout --`。
-- `git reset --hard` **只影响已跟踪文件**，不会删除未入库的 `public/gallery/`。
-- **不要执行 `git clean -fdx`**，否则会删除相册原图。
+- `git reset --hard` **只影响已跟踪文件**，不会删除未入库的 `src/content/posts/`、`src/content/dynamic/`、`public/gallery/`。
+- **不要执行 `git clean -fdx`**，否则会删除文章、动态和相册原图。
 - 如果远程名改成了 `gitee`，把上面的 `origin` 换成 `gitee`。
-- 如果使用第 3.1 节方案 B（源码压缩包，没有 `.git`），更新时重新下载压缩包覆盖即可，覆盖前先备份 `public/gallery/`。
+- 如果使用第 3.1 节方案 B（源码压缩包，没有 `.git`），更新时重新下载压缩包覆盖即可，覆盖前先备份 `src/content/posts/`、`src/content/dynamic/`、`public/gallery/`。
 
 ---
 
@@ -777,7 +798,10 @@ pnpm build
 ```bash
 cd /var/www/blog_firefly
 
-# 相册原图（最重要，不在 Git 中）
+# 文章与动态（不在 Git 中，丢了无法从仓库恢复）
+tar -czf ~/firefly-content-$(date +%F).tar.gz src/content/posts src/content/dynamic
+
+# 相册原图（不在 Git 中）
 tar -czf ~/firefly-gallery-$(date +%F).tar.gz public/gallery
 
 # 上一版构建产物
@@ -787,7 +811,7 @@ cp -a dist dist.bak
 sudo cp /etc/nginx/conf.d/blog_firefly.conf ~/firefly-nginx-$(date +%F).conf
 ```
 
-建议定期把 `~/firefly-gallery-*.tar.gz` 下载到本地或对象存储。
+建议定期把 `~/firefly-content-*.tar.gz`、`~/firefly-gallery-*.tar.gz` 下载到本地或对象存储。
 
 ### 6.2 回滚
 
@@ -858,6 +882,8 @@ pnpm build
 | `pnpm build` 被杀 | 内存不足，增加 swap 或升级服务器 |
 | `git pull` 冲突 | 先还原 `src/constants/lqips.json`、`src/constants/github-card-data.json` |
 | `git clean -fdx` 后相册消失 | 该命令会删除未入库文件；从备份恢复 `public/gallery` |
+| `git clean -fdx` 后文章/动态消失 | 同上，`src/content/posts`、`src/content/dynamic` 也不在 Git 中，需从备份恢复 |
+| 动态上传后页面没变 | 是否上传到了服务器 `src/content/dynamic/`，是否在服务器执行了 `pnpm build` |
 | 页面样式错乱 | 是否直接修改了 `dist/`；应修改 `src/` 后重新构建 |
 | 刷新后样式丢失，控制台 404 `Layout.*.css` | 旧 HTML 引用了已删除的哈希资源。确认 HTML 响应为 `Cache-Control: no-cache`；频繁部署时可选用 4.3 节的“保留上一版哈希资源” |
 | 构建报 `CannotFetchFontFile` / 字体下载失败 | 多为服务器访问 `cdn.jsdelivr.net` 临时失败，可先重试；持续失败时考虑自托管字体或配置可用的网络代理 |
@@ -875,6 +901,7 @@ pnpm build
 | 克隆方式 | 稀疏浅克隆（`--filter=blob:none --sparse`，不检出 `public/pio`） |
 | Nginx root | `/var/www/blog_firefly/dist` |
 | 相册目录 | `/var/www/blog_firefly/public/gallery/{net,scenery,two-dimensional}` |
+| 不入 Git 的内容 | `src/content/posts/`、`src/content/dynamic/`、`public/gallery/`、`public/assets/music/` |
 | 页面开关 | 动态、相册、关于开启；友链、留言、项目、书签、打赏、追番等关闭 |
 | 评论 | 未启用（`commentConfig.type = "none"`） |
 | 访问协议 | HTTP（无域名，暂不启用 HTTPS） |
@@ -888,8 +915,9 @@ pnpm build
 - [x] 仓库已克隆到 `/var/www/blog_firefly`，并切换到 `migrate/blog`
 - [x] `pnpm install --frozen-lockfile` 成功
 - [x] `public/gallery/net`、`public/gallery/scenery` 图片已上传（3 + 8 张）
+- [ ] `src/content/posts/`、`src/content/dynamic/` 内容已上传（两目录不入 Git）
 - [x] `siteConfig.site_url` 为 `http://124.223.166.233`
 - [x] `pnpm build` 成功，`dist/`、`dist/pagefind/` 已生成
 - [x] Nginx 配置已写入并通过 `nginx -t`
-- [ ] 首页、4 篇文章、2 个相册、RSS、Sitemap、404 均验证通过
-- [ ] `public/gallery` 已做第一份备份
+- [ ] 首页、文章、相册、动态、RSS、Sitemap、404 均验证通过
+- [ ] `src/content/` 与 `public/gallery` 已做第一份备份

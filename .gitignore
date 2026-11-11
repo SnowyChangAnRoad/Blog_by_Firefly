@@ -61,3 +61,7 @@ public/assets/music/**
 # 文章内容：只在本地与服务器维护，不入库
 src/content/posts/**
 !src/content/posts/.gitkeep
+
+# 动态内容：只在本地与服务器维护，不入库
+src/content/dynamic/**
+!src/content/dynamic/.gitkeep
