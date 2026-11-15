@@ -902,8 +902,9 @@ pnpm build
 | Nginx root | `/var/www/blog_firefly/dist` |
 | 相册目录 | `/var/www/blog_firefly/public/gallery/{net,scenery,two-dimensional}` |
 | 不入 Git 的内容 | `src/content/posts/`、`src/content/dynamic/`、`public/gallery/`、`public/assets/music/` |
-| 页面开关 | 动态、相册、关于开启；友链、留言、项目、书签、打赏、追番等关闭 |
-| 评论 | 未启用（`commentConfig.type = "none"`） |
+| 页面开关 | 动态、相册、关于、留言板开启；友链、项目、书签、打赏、追番等关闭 |
+| 评论 | Artalk，留言板与文章启用，动态评论关闭 |
+| Artalk 后端 | `http://124.223.166.233:8080` → `127.0.0.1:23366`（systemd） |
 | 访问协议 | HTTP（无域名，暂不启用 HTTPS） |
 
 ---
@@ -921,3 +922,182 @@ pnpm build
 - [x] Nginx 配置已写入并通过 `nginx -t`
 - [ ] 首页、文章、相册、动态、RSS、Sitemap、404 均验证通过
 - [ ] `src/content/` 与 `public/gallery` 已做第一份备份
+
+---
+
+## 11. Artalk 评论系统（留言板 + 文章）
+
+评论后端单独运行，站点仍是纯静态；`commentConfig.type = "artalk"`，前端向 `http://124.223.166.233:8080` 请求 API。
+
+### 11.1 安装二进制
+
+```bash
+uname -m    # x86_64 对应 linux_amd64
+
+URL=$(curl -s https://api.github.com/repos/ArtalkJS/Artalk/releases/latest \
+  | grep browser_download_url | grep -E 'linux_amd64.*tar\.gz' | cut -d '"' -f 4)
+echo "$URL"
+
+cd /tmp
+curl -LO "$URL"
+tar -zxvf artalk_*linux_amd64*.tar.gz
+sudo mv artalk /usr/bin/artalk
+artalk version
+```
+
+### 11.2 创建运行用户与目录
+
+```bash
+sudo groupadd --system artalk
+sudo useradd --system --gid artalk --create-home \
+  --home-dir /var/lib/artalk --shell /usr/sbin/nologin \
+  --comment "Artalk server" artalk
+
+sudo mkdir -p /etc/artalk /var/lib/artalk/data
+```
+
+### 11.3 配置文件
+
+```bash
+sudo /usr/bin/artalk gen conf -lang zh-CN /etc/artalk/artalk.yml
+sudo nano /etc/artalk/artalk.yml
+```
+
+关键项：
+
+```yaml
+app_key: <随机长字符串>
+locale: zh-CN
+timezone: Asia/Shanghai
+
+db:
+  type: sqlite
+  file: ./data/artalk.db
+
+host: 127.0.0.1
+port: 23366
+
+site_default: SnowyChangAnRoad
+
+trusted_domains:
+  - http://124.223.166.233
+```
+
+- `site_default` 必须与 `siteConfig.title` 完全一致，否则后台看不到评论。
+- `trusted_domains` 写前端站点地址，80 端口不用写端口号。以后换 IP 或域名必须同步修改并重启。
+
+权限：
+
+```bash
+sudo chown -R artalk:artalk /var/lib/artalk
+sudo chown root:artalk /etc/artalk/artalk.yml
+sudo chmod 640 /etc/artalk/artalk.yml
+```
+
+### 11.4 systemd 服务
+
+`/etc/systemd/system/artalk.service`：
+
+```ini
+[Unit]
+Description=Artalk
+Documentation=https://artalk.js.org
+After=network.target network-online.target
+Requires=network-online.target
+
+[Service]
+Type=simple
+User=artalk
+Group=artalk
+ExecStart=/usr/bin/artalk server -w /var/lib/artalk -c /etc/artalk/artalk.yml
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s QUIT $MAINPID
+TimeoutStopSec=5s
+LimitNOFILE=1048576
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now artalk
+systemctl status artalk --no-pager
+curl -I http://127.0.0.1:23366/
+```
+
+### 11.5 创建管理员
+
+```bash
+sudo -u artalk /usr/bin/artalk admin -w /var/lib/artalk -c /etc/artalk/artalk.yml
+```
+
+按提示设置用户名与密码，密码会以哈希形式存入数据库。
+
+### 11.6 Nginx 8080 反向代理
+
+`/etc/nginx/conf.d/artalk.conf`：
+
+```nginx
+server {
+    listen 8080;
+    server_name 124.223.166.233;
+
+    location / {
+        proxy_redirect off;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_pass http://127.0.0.1:23366/;
+    }
+}
+```
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+云安全组放行 TCP 8080；Ubuntu 还要 `sudo ufw allow 8080/tcp`。
+
+验证：
+
+```bash
+curl -I http://124.223.166.233:8080/
+```
+
+再用手机流量访问一次，确认非 80/443 端口没有被运营商或公共网络拦截。
+
+### 11.7 前端配置（仓库内）
+
+| 文件 | 值 |
+| --- | --- |
+| `src/config/commentConfig.ts` | `type: "artalk"`，`artalk.server: "http://124.223.166.233:8080"` |
+| `src/config/siteConfig.ts` | `pages.guestbook: true` |
+| `src/config/navBarConfig.ts` | 导航包含「留言」 |
+| `src/config/dynamicConfig.ts` | `showComment: false` |
+| `src/components/comment/Artalk.astro` | 使用 npmmirror 2.10.1 的 CSS/JS |
+
+修改后按第 4 节流程同步到服务器并 `pnpm build`。
+
+### 11.8 备份与排错
+
+备份评论数据：
+
+```bash
+sudo systemctl stop artalk
+sudo cp /var/lib/artalk/data/artalk.db ~/artalk-$(date +%F).db
+sudo systemctl start artalk
+```
+
+| 现象 | 排查 |
+| --- | --- |
+| 评论区空白 | `curl -I http://IP:8080/` 是否 200；浏览器控制台是否有 CORS 报错；`trusted_domains` 是否为 `http://124.223.166.233` |
+| 后台看不到评论 | `site_default` 与 `siteConfig.title` 是否一致 |
+| 修改配置不生效 | `sudo systemctl restart artalk` |
+| 换 IP / 域名后评论失效 | 同步更新 `trusted_domains`、`commentConfig.artalk.server`、`siteConfig.site_url`，重启 Artalk 并重新构建 |
+| 垃圾评论 | 在 Artalk 后台开启评论审核或验证码 |
+
+注意：当前站点为 HTTP，管理员密码与会话明文传输，请使用独立强密码，避免在公共网络登录后台；长期建议启用 HTTPS。

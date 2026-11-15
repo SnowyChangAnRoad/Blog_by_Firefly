@@ -39,6 +39,9 @@ const getDynamicNavBarConfig = (): NavBarConfig => {
 	// 动态
 	links.push(LinkPresets.Dynamic);
 
+	// 留言
+	links.push(LinkPresets.Guestbook);
+
 	// 相册
 	links.push(LinkPresets.Gallery);
 

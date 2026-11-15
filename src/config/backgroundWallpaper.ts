@@ -73,12 +73,13 @@ export const backgroundWallpaper: BackgroundWallpaperConfig = {
 			titleSize: "4.5rem",
 			// 主页横幅副标题
 			subtitle: [
-				"In Reddened Chrysalis, I Once Rest",
-				"From Shattered Sky, I Free Fall",
-				"Amidst Silenced Stars, I Deep Sleep",
-				"Upon Lighted Fyrefly, I Soon Gaze",
-				"From Undreamt Night, I Thence Shine",
-				"In Finalized Morrow, I Full Bloom",
+				"窗外桃花开了",
+				"去踏青",
+				"炎炎烈日，蝉鸣不绝",
+				"秋天是金色的",
+				"一同穿越冻雨和迷雾",
+				"我们并肩，便不惧寒风",
+				"融雪之日，复苏之时",
 			],
 			// 主页横幅副标题字体大小
 			subtitleSize: "1.5rem",
@@ -110,11 +111,6 @@ export const backgroundWallpaper: BackgroundWallpaperConfig = {
 					icon: "fa7-brands:bilibili",
 					url: "https://space.bilibili.com/1941501391",
 					showName: true,
-				},
-				{
-					name: "RSS",
-					icon: "fa7-solid:rss",
-					url: "/rss/",
 				},
 			],
 		},

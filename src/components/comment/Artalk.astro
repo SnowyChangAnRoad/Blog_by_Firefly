@@ -21,11 +21,11 @@ const config = {
     <div id="artalk" style="--at-color-main: var(--primary); --at-color-bg: var(--card-bg); --at-color-border: var(--line-divider);"></div>
 
     <!-- 引入 Artalk 样式 -->
-    <link rel="stylesheet" href="https://unpkg.com/artalk/dist/Artalk.css"/>
+    <link rel="stylesheet" href="https://registry.npmmirror.com/artalk/2.10.1/files/dist/Artalk.css"/>
 
     <!-- 脚本逻辑 -->
     <script type="module" is:inline define:vars={{config}}>
-        import Artalk from 'https://unpkg.com/artalk/dist/Artalk.mjs';
+        import Artalk from 'https://registry.npmmirror.com/artalk/2.10.1/files/dist/Artalk.mjs';
         const requestedPath = new URLSearchParams(window.location.search).get("path");
         const effectiveConfig = requestedPath
             ? { ...config, pageKey: requestedPath }

@@ -25,13 +25,13 @@ export const profileConfig: ProfileConfig = {
 			name: "GitHub",
 			icon: "fa7-brands:github",
 			url: "https://github.com/SnowyChangAnRoad",
-			showName: true,
+			showName: false,
 		},
 		{
 			name: "哔哩哔哩",
 			icon: "fa7-brands:bilibili",
 			url: "https://space.bilibili.com/1941501391",
-			showName: true,
+			showName: false,
 		},
 	],
 };
