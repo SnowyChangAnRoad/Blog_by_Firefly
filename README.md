@@ -106,6 +106,17 @@ pnpm dev          # http://localhost:4321
 
 接入步骤与排错见 [Artalk 接入文档](docs/ARTALK_PLAN.md)。
 
+## 访问统计
+
+访问统计使用自建 Umami，后端运行在服务器 `127.0.0.1:3001`，通过 Nginx 反代到 `/stats/`，数据存放在本地 PostgreSQL。
+
+- 前端配置：`src/config/analyticsConfig.ts` 的 `umamiAnalytics`（`websiteId` 为空时不注入脚本）
+- 仪表盘：`http://124.223.166.233/stats/`
+- 统计范围：全站 UV / PV，以及每篇文章的 UV / PV
+- 与 Artalk 的 PV 相互独立，Artalk 只负责评论与展示
+
+接入步骤见 [Umami 接入文档](docs/UMAMI_PLAN.md)。
+
 ## 文档索引
 
 | 文档 | 内容 |
@@ -114,6 +125,7 @@ pnpm dev          # http://localhost:4321
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | 服务器部署、日常更新、备份回滚、Nginx、Artalk |
 | [docs/MIGRATION_PLAN.md](docs/MIGRATION_PLAN.md) | 从旧 FastAPI 站点迁移的决策与执行记录 |
 | [docs/ARTALK_PLAN.md](docs/ARTALK_PLAN.md) | Artalk 接入的决策、服务器步骤与仓库改动 |
+| [docs/UMAMI_PLAN.md](docs/UMAMI_PLAN.md) | Umami 访问统计的决策、服务器步骤与仓库改动 |
 
 ## 已知限制
 

@@ -5,14 +5,14 @@ export const analyticsConfig: AnalyticsConfig = {
 	googleAnalyticsId: "",
 	// Microsoft Clarity ID
 	microsoftClarityId: "",
-	// Umami 统计配置
+	// Umami 统计配置（自建实例，见 docs/UMAMI_PLAN.md）
 	umamiAnalytics: {
-		// Umami Website ID
-		websiteId: "",
-		// Umami JS地址，支持使用自建
-		scriptUrl: "https://cloud.umami.is/script.js",
-		// Umami 会话回放脚本地址，支持使用自建
-		replaysScriptUrl: "https://cloud.umami.is/recorder.js",
+		// Umami Website ID：在 Umami 后台新建站点后获取，留空则不注入统计脚本
+		websiteId: "320a53f1-31c8-426b-9c13-d0d2b5ec9a17",
+		// 自建 Umami 脚本地址（BASE_PATH=/stats）
+		scriptUrl: "http://124.223.166.233/stats/script.js",
+		// 自建 Umami 会话回放脚本地址
+		replaysScriptUrl: "http://124.223.166.233/stats/recorder.js",
 		// 是否追踪出站链接
 		trackOutboundLinks: true,
 		// 是否收集浏览器性能指标
