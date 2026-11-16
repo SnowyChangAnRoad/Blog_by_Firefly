@@ -154,8 +154,11 @@ DATABASE_TYPE=postgresql
 DATABASE_URL=postgresql://umami:换成强密码@localhost:5432/umami
 APP_SECRET=第 3 步生成的随机串
 PORT=3001
+HOSTNAME=127.0.0.1
 NODE_ENV=production
 HOME=/home/ubuntu
+# 时区：不设置时图表按 UTC 分桶，东八区会看到时间整体偏移
+TZ=Asia/Shanghai
 ```
 
 `/etc/systemd/system/umami.service`：
@@ -171,7 +174,9 @@ Type=simple
 User=ubuntu
 WorkingDirectory=/opt/umami
 EnvironmentFile=/etc/umami.env
-ExecStart=/usr/bin/pnpm start
+# next.config 使用 output: standalone，必须用 standalone server 启动，
+# 不能写 /usr/bin/pnpm start（会打印 "next start does not work with output: standalone"）
+ExecStart=/usr/bin/node /opt/umami/.next/standalone/server.js
 Restart=always
 RestartSec=5
 
@@ -181,12 +186,21 @@ WantedBy=multi-user.target
 
 说明：
 
-- `User=ubuntu` 用你部署用的普通用户；`HOME` 必须指向该用户的家目录，否则 pnpm 找不到缓存。
-- `ExecStart` 先用 `which pnpm` 确认绝对路径，Node 由 nvm 安装时不是 `/usr/bin/pnpm`。
+- `User=ubuntu` 用你部署用的普通用户；`HOME` 必须指向该用户的家目录。
+- 本项目版本使用 `output: standalone`，必须用 `node .next/standalone/server.js` 启动。用 `pnpm start`（即 `next start`）虽然能打开页面，但静态资源与实时接口会出现异常，典型表现是「实时图表空白」「页面图表数据错乱」。
+- standalone 目录需要包含静态资源，正常情况下 `postbuild` 脚本已复制。缺失时手动补：
+
+  ```bash
+  cd /opt/umami
+  ls .next/standalone/server.js
+  cp -r .next/static .next/standalone/.next/
+  cp -r public .next/standalone/
+  ```
 
 ```bash
 # 启动前确认构建产物存在
 ls -la /opt/umami/.next/BUILD_ID
+ls -la /opt/umami/.next/standalone/server.js
 
 sudo chmod 600 /etc/umami.env
 sudo systemctl daemon-reload
@@ -195,7 +209,6 @@ systemctl status umami --no-pager
 curl -I http://127.0.0.1:3001/stats/
 ```
 
-- `pnpm start` 的实际命令以 `grep -n '"start"' package.json` 为准（部分版本是 `next start`，部分版本是 `node .next/standalone/server.js`）。
 - 若报 `Could not find a production build`，说明第 3 步构建未完成，或 `WorkingDirectory` 不是 `/opt/umami`。
 - `curl -I http://127.0.0.1:3001/stats/` 返回 **308** 是正常现象：Next.js 会把带尾斜杠的 `/stats/` 重定向到 `/stats`。服务本身已经跑起来了。
 
@@ -209,10 +222,26 @@ curl -I http://127.0.0.1:3001/stats/
 # 注意：不要写成 /stats/，Next.js 会把 /stats/ 重定向到 /stats
 location /stats {
     proxy_pass http://127.0.0.1:3001;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
+    # 实时页依赖长连接/流式响应，必须关闭缓冲
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 3600s;
+}
+```
+
+`$connection_upgrade` 需要在该配置文件、`server {}` 之前定义：
+
+```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
 }
 ```
 
@@ -220,6 +249,7 @@ location /stats {
 
 - `location` 必须是 `/stats`（无尾斜杠）。若写成 `location /stats/`，浏览器被重定向到 `/stats` 后不匹配该 location，会落到站点配置返回 404。
 - `proxy_pass` 末尾**不要加斜杠**，否则 `/stats` 前缀被剥掉，和 `BASE_PATH=/stats` 冲突。
+- `proxy_buffering off` 与 `proxy_read_timeout` 是 Realtime 页面能刷新的关键，缺失时表现为「有访问数据但实时图表空白」。
 - 不要放行 3001 到公网，也不需要开放新端口。
 
 ```bash
@@ -267,6 +297,76 @@ pnpm build
 6. 浏览器控制台无 `/stats/script.js` 404、无 CORS 报错。
 7. `curl -I http://124.223.166.233/stats/` 返回 200 或 302。
 
+### 常见问题
+
+#### 图表时间整体偏移 8 小时
+
+现象：本地 10:00 的访问，在图表上落在 02:00 附近（或凌晨 00:00）。
+
+原因：容器/进程时区是 UTC，图表按 UTC 分桶。
+
+处理：
+
+```bash
+sudo timedatectl set-timezone Asia/Shanghai
+sudo timedatectl status
+
+# 给 Umami 进程加时区（写入环境文件后重启）
+echo 'TZ=Asia/Shanghai' | sudo tee -a /etc/umami.env
+sudo systemctl restart umami
+
+# 可选：让 PostgreSQL 会话时区也用东八区
+psql "postgresql://umami:密码@localhost:5432/umami" -c "ALTER DATABASE umami SET timezone TO 'Asia/Shanghai';"
+```
+
+历史数据按 UTC 存储，改时区后展示会一并校正，不需要重算。
+
+#### Realtime 图表空白，但概览有数据
+
+先确认请求类型：打开 Realtime 页面 → DevTools → Network → 过滤 `stats`。
+
+- 若看到 `eventsource` 或长时间 pending 的请求 → Nginx 缓冲未关闭，按第 5 步补上 `proxy_buffering off`、`proxy_read_timeout 3600s` 后 `sudo nginx -t && sudo systemctl reload nginx`。
+- 若请求 200 但返回空数组 → 检查服务器时间是否正确：
+
+  ```bash
+  date
+  timedatectl status
+  ```
+
+- 若完全看不到 `/stats/api` 请求 → 浏览器插件拦截或页面未登录成功。
+
+#### 实时与图表同时异常：检查启动方式
+
+日志里出现下面这行时，说明启动命令与构建模式不匹配：
+
+```text
+⚠ "next start" does not work with "output: standalone" configuration.
+```
+
+处理：按第 4 步把 `ExecStart` 改成 `node /opt/umami/.next/standalone/server.js`，并确认静态资源已复制：
+
+```bash
+cd /opt/umami
+ls .next/standalone/server.js
+ls .next/standalone/.next/static | head
+ls .next/standalone/public | head
+
+# 静态资源缺失时补一次
+cp -r .next/static .next/standalone/.next/
+cp -r public .next/standalone/
+
+sudo systemctl daemon-reload
+sudo systemctl restart umami
+```
+
+另外检查前端资源是否 404：
+
+```bash
+sudo grep -E ' /stats/_next/.* (404|500) ' /var/log/nginx/access.log | tail -20
+```
+
+有大量 404 就是上面的静态资源未复制问题。
+
 ## 六、查询与备份
 
 仪表盘上可以按时间范围、路径、来源、设备、浏览器筛选，并导出 CSV。也可以直接连库：
@@ -288,6 +388,49 @@ pg_dump "postgresql://umami:密码@localhost:5432/umami" \
 ```
 
 建议和 `public/gallery`、Artalk 的 `artalk.db` 一起定期备份。
+
+### 站点统计显示累计访问量
+
+侧边栏「站点统计」里的**累计访客数**与**累计浏览量**是构建期快照，不是实时数据。
+
+实现方式：
+
+```text
+pnpm build
+  └─ scripts/fetch-umami-stats.ts   # 用 psql 查 Umami 数据库
+       └─ src/constants/umami-stats.json   # { visitors, pageviews, updatedAt }
+            └─ SiteStats.astro 读取并渲染
+```
+
+需要的环境变量（**只在服务器设置，不要提交到仓库**）：
+
+```bash
+# 新建一个仅自己可读的环境文件
+nano ~/.umami-stats.env
+chmod 600 ~/.umami-stats.env
+```
+
+内容：
+
+```ini
+UMAMI_DATABASE_URL=postgresql://umami:数据库密码@localhost:5432/umami
+UMAMI_WEBSITE_ID=320a53f1-31c8-426b-9c13-d0d2b5ec9a17
+```
+
+构建时加载：
+
+```bash
+cd /var/www/blog_firefly
+set -a; . ~/.umami-stats.env; set +a
+pnpm build
+```
+
+说明：
+
+- `UMAMI_WEBSITE_ID` 可省略；省略时统计整库所有事件。
+- 数据库不可用或变量缺失时，脚本只打印警告，保留上一次的 JSON，不影响构建。
+- `src/constants/umami-stats.json` 已加入 `.gitignore`，本地没有该文件时侧边栏不显示这两项。
+- 数字只在重新构建后更新；要更实时需要改成运行时接口方案（见 `docs/UMAMI_ISSUES.md` 的排查思路）。
 
 ## 七、风险与后续
 

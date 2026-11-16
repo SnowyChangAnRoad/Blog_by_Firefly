@@ -453,6 +453,8 @@ export const en: Translation = {
 	[Key.siteStatsLastUpdate]: "Last Activity",
 	[Key.siteStatsDaysAgo]: "{days} days ago",
 	[Key.siteStatsDays]: "{days} days",
+	[Key.siteStatsTotalVisitors]: "Total visitors",
+	[Key.siteStatsTotalViews]: "Total page views",
 	[Key.today]: "Today",
 
 	// Site Info

@@ -55,6 +55,9 @@ public/gallery/**
 # 相册压缩前的原图备份
 .gallery-originals/
 
+# 构建期生成的 Umami 访问量快照
+src/constants/umami-stats.json
+
 # 音乐资源：音频与封面体积大，不入库，部署时单独上传
 public/assets/music/**
 

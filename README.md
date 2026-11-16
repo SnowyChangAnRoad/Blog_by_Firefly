@@ -126,6 +126,7 @@ pnpm dev          # http://localhost:4321
 | [docs/MIGRATION_PLAN.md](docs/MIGRATION_PLAN.md) | 从旧 FastAPI 站点迁移的决策与执行记录 |
 | [docs/ARTALK_PLAN.md](docs/ARTALK_PLAN.md) | Artalk 接入的决策、服务器步骤与仓库改动 |
 | [docs/UMAMI_PLAN.md](docs/UMAMI_PLAN.md) | Umami 访问统计的决策、服务器步骤与仓库改动 |
+| [docs/UMAMI_ISSUES.md](docs/UMAMI_ISSUES.md) | Umami 图表时间偏移与 Realtime 空白的问题记录与待排查清单 |
 
 ## 已知限制
 

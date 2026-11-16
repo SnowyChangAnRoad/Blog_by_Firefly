@@ -1,4 +1,6 @@
 ---
+import fs from "node:fs";
+import path from "node:path";
 import { Icon } from "astro-icon/components";
 import WidgetLayout from "@/components/common/WidgetLayout.astro";
 import { siteConfig } from "@/config";
@@ -70,7 +72,31 @@ const lastPostDate = lastActivityDate ? lastActivityDate.toISOString() : null;
 
 const todayText = i18n(I18nKey.today);
 
-const stats = [
+// 构建期生成的访问量快照（见 scripts/fetch-umami-stats.ts）。文件不存在时不渲染这两项。
+interface UmamiStats {
+	visitors?: number;
+	pageviews?: number;
+}
+
+let umamiStats: UmamiStats | null = null;
+try {
+	const statsFile = path.join(process.cwd(), "src", "constants", "umami-stats.json");
+	umamiStats = JSON.parse(fs.readFileSync(statsFile, "utf8")) as UmamiStats;
+} catch {
+	umamiStats = null;
+}
+
+interface StatItem {
+	icon: string;
+	label: string;
+	value: number;
+	formatted?: boolean;
+	suffix?: string;
+	dynamic?: boolean;
+	id?: string;
+}
+
+const stats: StatItem[] = [
 	{
 		icon: "material-symbols:article-outline",
 		label: i18n(I18nKey.siteStatsPostCount),
@@ -109,6 +135,26 @@ const stats = [
 		id: "last-update",
 	},
 ];
+
+// 访问量插在「总字数」之后，没有快照文件时保持原样
+if (umamiStats) {
+	stats.splice(
+		4,
+		0,
+		{
+			icon: "material-symbols:group-outline",
+			label: i18n(I18nKey.siteStatsTotalVisitors),
+			value: umamiStats.visitors ?? 0,
+			formatted: true,
+		},
+		{
+			icon: "material-symbols:visibility-outline-rounded",
+			label: i18n(I18nKey.siteStatsTotalViews),
+			value: umamiStats.pageviews ?? 0,
+			formatted: true,
+		},
+	);
+}
 ---
 
 <WidgetLayout name={i18n(I18nKey.siteStats)} showTitle={showTitle} id="site-stats" class={className} style={style}>
