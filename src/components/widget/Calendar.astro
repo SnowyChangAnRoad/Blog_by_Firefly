@@ -290,7 +290,7 @@ const postUrlPrefix = url("/posts/");
     
     if (navDisplay) {
       if (currentView === 'day') {
-        if (currentLang.startsWith('zh') || currentLang.startsWith('ja')) {
+        if (currentLang.startsWith('zh')) {
             navDisplay.textContent = `${displayYear}${yearText}${monthNames[displayMonth]}`;
         } else {
             navDisplay.textContent = `${monthNames[displayMonth]} ${displayYear}`;

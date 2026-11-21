@@ -3,7 +3,7 @@ import { resolvePageToggles } from "../utils/page-toggle-utils";
 import { resolveSiteLang } from "../utils/site-config-utils";
 
 // 定义站点语言
-// 语言代码，例如：'zh_CN', 'zh_TW', 'en', 'ja', 'ru', 'ko'。
+// 语言代码，例如：'zh_CN', 'en', 'ru'。
 const SITE_LANG = resolveSiteLang("zh_CN");
 
 // 页面开关配置 - 控制特定页面的访问权限，设为false会返回404并自动隐藏对应的导航栏菜单项
@@ -25,12 +25,6 @@ const pages = resolvePageToggles({
 	gallery: true,
 	// 书签导航页面开关
 	booknav: false,
-	// 哔哩哔哩追番页面开关
-	bilibili: false,
-	// 番组计划页面开关
-	bangumi: false,
-	// VNDB页面开关
-	vndb: false,
 	// MyAnimeList页面开关
 	mal: false,
 
@@ -59,9 +53,7 @@ export const siteConfig: SiteConfig = {
 		"Firefly",
 		"Fuwari",
 		"Astro",
-		"ACGN",
 		"博客",
-		"技术博客",
 		"静态博客",
 	],
 
@@ -134,7 +126,7 @@ export const siteConfig: SiteConfig = {
 	// 站点开始日期，用于统计运行天数
 	siteStartDate: "2026-11-05",
 
-	// 站点时区（IANA 时区字符串），用于格式化bangumi、rss里的构建日期时间等等..
+	// 站点时区（IANA 时区字符串），用于格式化 RSS 等构建日期时间等等..
 	// 示例："Asia/Shanghai", "UTC", 如果为空，则按照构建服务器的时区进行时区转换
 	timezone: "Asia/Shanghai",
 
@@ -259,56 +251,6 @@ export const siteConfig: SiteConfig = {
 		},
 	},
 
-	// ── Bilibili配置 ──────────────────────────────────
-	bilibili: {
-		// 你的 Bilibili 用户 UID
-		uid: "1941501391",
-	},
-
-	// ── 番组计划bangumi配置 ──────────────────────────────────
-	bangumi: {
-		// Bangumi用户ID
-		userId: "1143164",
-		// 数据模式：static=构建时获取，dynamic=客户端实时获取
-		// static 模式在构建时获取数据并静态渲染，部署后数据不更新
-		// dynamic 模式在浏览器中实时请求 API，始终显示最新数据
-		mode: "dynamic",
-		// Bangumi API 地址
-		apiUrl: "https://api.bangumi.pro",
-		// 详情页地址
-		subjectBaseUrl: "https://api.bangumi.pro/subject/",
-		// 条目类型排序，数组中的类型将按顺序优先展示
-		// 可选值: "anime" | "book" | "music" | "game" | "real" (暂不支持"real"类型)
-		// 未列出的类型将按默认顺序排在后面
-		categoryOrder: ["anime", "book", "music", "game"],
-		// 控制各分类的启用状态（true/false），未指定的分类默认启用
-		// categories: {
-		// 	game: false, // 禁用游戏分类显示
-		// },
-		// NSFW 处理："off" 不过滤 | "blur" 仅模糊封面 | "hide" 隐藏条目
-		nsfw: "hide",
-	},
-
-	// ── VNDB配置 ──────────────────────────────────
-	vndb: {
-		// VNDB 用户 ID
-		userId: "u358128",
-		// 数据模式：static=构建时获取，dynamic=客户端实时获取
-		// static 模式在构建时获取数据并静态渲染，部署后数据不更新
-		// dynamic 模式在浏览器中实时请求 API，始终显示最新数据
-		mode: "static",
-		// 构建时下载并压缩封面到 public/vndb-covers，图片由本站服务器提供
-		downloadCovers: false,
-		// VNDB API 地址
-		apiUrl: "https://api.vndb.org/kana",
-		// 条目详情页地址，末尾需要带 /
-		vnBaseUrl: "https://vndb.org/",
-		// 私密列表访问令牌，仅 static 模式下使用；不要把真实令牌提交到公开仓库！
-		apiToken: "",
-		// NSFW 处理："off" 不过滤 | "blur" 仅模糊封面 | "hide" 隐藏条目
-		nsfw: "hide",
-	},
-
 	// ── MyAnimeList配置 ──────────────────────────────────
 	mal: {
 		// MyAnimeList 用户名（列表需为公开状态，私密列表无法读取）
@@ -339,14 +281,9 @@ export const siteConfig: SiteConfig = {
 		// 图片压缩质量 (1-100)，值越低体积越小但质量越差，推荐 70-85
 		quality: 85,
 		// 为特定域名的图片添加 referrerpolicy="no-referrer" 属性
-		// 支持通配符 *，例如：["i0.hdslb.com", "*.bilibili.com"]
+		// 支持通配符 *，例如：["*.myanimelist.net"]
 		// 可解决指定域名图片加载时的 403 问题（如防盗链图片）
-		noReferrerDomains: [
-			"*.hdslb.com",
-			"*.bilibili.com",
-			"*.myanimelist.net",
-			"*.vndb.org",
-		],
+		noReferrerDomains: ["*.myanimelist.net"],
 	},
 
 	// ── 订阅 (RSS / Atom) 配置 ──────────────────────────────────

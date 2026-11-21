@@ -10,7 +10,7 @@
 | --- | --- |
 | 统计方案 | 自建 Umami 2.x |
 | 部署方式 | 不用 Docker：apt 安装 PostgreSQL + 源码构建 + systemd |
-| 访问入口 | `http://124.223.166.233/stats/`（Nginx 反代到 `127.0.0.1:3001`） |
+| 访问入口 | `http://124.223.166.233/stats`（Nginx 反代到 `127.0.0.1:3001`） |
 | 统计粒度 | 全站 UV / PV + 每篇文章 UV / PV |
 | 查看方式 | Umami 自带网页仪表盘 |
 | 内存保护 | 增加 2 GB swap，避免构建期 OOM |
@@ -22,9 +22,9 @@ UV 口径：Umami 不保存原始 IP，服务端按「IP + UA + 每日盐」生�
 
 ```text
 站点    http://124.223.166.233/          Nginx :80   → /var/www/blog_firefly/dist
-统计    http://124.223.166.233/stats/    Nginx :80   → 127.0.0.1:3001（同站点配置内的 location）
+统计    http://124.223.166.233/stats     Nginx :80   → 127.0.0.1:3001（同站点配置内的 location）
                                              ↓
-                               pnpm start（systemd: umami.service）
+                               node .next/standalone/server.js（systemd: umami.service）
                                /opt/umami（源码 + .next）
                                PostgreSQL 本地库 umami:5432
 ```
@@ -295,7 +295,7 @@ pnpm build
 4. 「Pages」报表能按 `/posts/xxx/` 看到每篇文章的 Visitors（UV）与 Views（PV）。
 5. 站内点击切换文章后 Views 继续增长（Umami 会跟随 History API，Swup 切页不会漏计）。
 6. 浏览器控制台无 `/stats/script.js` 404、无 CORS 报错。
-7. `curl -I http://124.223.166.233/stats/` 返回 200 或 302。
+7. `curl -I http://124.223.166.233/stats` 返回 200。
 
 ### 常见问题
 
@@ -447,6 +447,6 @@ pnpm build
 ## 八、回滚
 
 1. 仓库：把 `analyticsConfig.umamiAnalytics.websiteId` 改回空字符串，重新构建，站点立即停止上报。
-2. 服务器：注释或删除 Nginx 的 `location /stats/`，`sudo systemctl disable --now umami`。
+2. 服务器：注释或删除 Nginx 的 `location /stats`，`sudo systemctl disable --now umami`。
 3. 如不再需要统计，`sudo apt remove --purge postgresql` 并删除 `/opt/umami`。
 4. 历史数据在 PostgreSQL 中，回滚站点不会删除；需要保留时先 `pg_dump`。

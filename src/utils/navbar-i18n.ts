@@ -6,7 +6,7 @@ import type { NavBarLink } from "@/types/navBarConfig";
 // 思路：把「默认菜单名」映射到对应的 i18n key。
 // 渲染时若 name 未被用户修改（仍等于默认值），就用 i18n 翻译；
 // 若用户改了 name（不再是默认值），映射不命中，保留自定义名称。
-// VNDB / AnimeList 等品牌名各语言一致，不放入映射，保持原名。
+// AnimeList 等品牌名各语言一致，不放入映射，保持原名。
 
 const NAVBAR_DEFAULT_NAMES: Record<string, I18nKey> = {
 	// 分组
@@ -27,8 +27,6 @@ const NAVBAR_DEFAULT_NAMES: Record<string, I18nKey> = {
 	项目: I18nKey.projects,
 	相册: I18nKey.gallery,
 	书签导航: I18nKey.booknav,
-	哔哩哔哩: I18nKey.bilibili,
-	番组计划: I18nKey.bangumi,
 	打赏: I18nKey.sponsor,
 	关于我: I18nKey.about,
 };

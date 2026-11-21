@@ -6,7 +6,11 @@
 >
 > 适用分支：`migrate/blog`（迁移完成后可合并回 `master`）
 >
-> 本文按“首次部署 → 验收 → 日常发文 → 备份回滚”的顺序编写，命令可直接复制执行。示例默认使用 `ubuntu` 普通用户登录（`ssh ubuntu@124.223.166.233`）。系统级操作（安装软件、修改 Nginx、重启服务）均标注 `sudo`；克隆、安装依赖、构建以 `ubuntu` 身份执行，不需要 `sudo`。
+> **本文只讲首次部署**：服务器前置、克隆、构建、Nginx、验收、域名切换，以及 Artalk / Umami 的一次性安装。
+>
+> **日常维护**（发布文章、更新动态、维护相册与音乐、更新模板代码、备份回滚、排错）见 [MAINTENANCE.md](MAINTENANCE.md)。
+>
+> 示例默认使用 `ubuntu` 普通用户登录（`ssh ubuntu@124.223.166.233`）。系统级操作（安装软件、修改 Nginx、重启服务）均标注 `sudo`；克隆、安装依赖、构建以 `ubuntu` 身份执行，不需要 `sudo`。
 
 ---
 
@@ -26,6 +30,8 @@
         │  pnpm build
         ▼
 Nginx 读取 dist/，对外提供 http://124.223.166.233
+   ├─ /stats   → 127.0.0.1:3001   Umami 仪表盘（systemd: umami.service）
+   └─ :8080    → 127.0.0.1:23366  Artalk 评论 API（systemd: artalk.service）
 ```
 
 关键约定：
@@ -35,7 +41,9 @@ Nginx 读取 dist/，对外提供 http://124.223.166.233
 - **禁止在服务器执行 `git clean -fdx`**，否则会删除未入库的文章、动态和相册原图。
 - 站点使用尾斜杠（`/posts/hello-world/`），站内链接都带 `/`。
 - 当前无域名，只能使用 HTTP；`site_url` 已设为 `http://124.223.166.233`。
-- 服务器使用**稀疏浅克隆**：`public/pio` 未检出（看板娘已关闭，构建不需要），`public/gallery` 始终不在 Git 中。维护约定见 3.2 节。
+- 服务器使用**稀疏浅克隆**：`public/pio` 未检出（看板娘已关闭，构建不需要），`public/gallery` 始终不在 Git 中。维护约定见 3.2 节与 [MAINTENANCE.md](MAINTENANCE.md)。
+- 评论（Artalk，SQLite）与访问统计（Umami，PostgreSQL）都是独立后端服务，站点本身仍是纯静态；两者的数据目录都在服务器本地，需要单独备份，见第 8、9 节。
+- 侧边栏「站点统计」的累计访客数 / 浏览量由构建期的 `scripts/fetch-umami-stats.ts` 查 Umami 库生成，依赖服务器上的 `~/.umami-stats.env`；未配置时这两项不渲染，构建不受影响。详见第 9 节。
 
 ---
 
@@ -58,11 +66,12 @@ sudo -n true && echo "已配置免密 sudo" || echo "sudo 需要输入密码，�
 
 | 依赖 | 版本/用途 |
 | --- | --- |
-| Node.js | >= 22.23.0，用于构建 |
+| Node.js | >= 22.23.0，用于构建博客与运行 Umami |
 | pnpm | 11.22.0，通过 corepack 启用 |
 | Git | 拉取代码 |
 | rsync / scp | 上传文章与相册 |
-| Nginx | 静态托管 |
+| Nginx | 静态托管、`/stats` 反代、Artalk 8080 反代 |
+| PostgreSQL | 仅 Umami 访问统计使用，见第 9 节与 [UMAMI_PLAN.md](UMAMI_PLAN.md) |
 
 #### Ubuntu / Debian
 
@@ -136,7 +145,7 @@ git log --oneline -3
 
 如果使用 `git@github.com:...` 形式，需要先在服务器生成 SSH key 并添加到 GitHub 仓库的 Deploy Key。
 
-> 后续更新代码时不要直接 `git pull`，用第 5 节的浅拉取命令。
+> 后续更新代码时不要直接 `git pull`，用 [MAINTENANCE.md](MAINTENANCE.md) 中「更新模板代码」的浅拉取命令。
 >
 > 如果浅克隆仍然很慢，见第 3.1 节的备选方案。
 
@@ -187,7 +196,7 @@ ls /var/www/blog_firefly/public/gallery/scenery
 - `scenery`：`01-build_1.jpg` 到 `08-gools_1.jpg`
 
 > 旧站导出的 `.json` 元信息不要上传，Firefly 不读取它们。
-> 建议长期备份 `public/gallery/`，它不受 Git 保护。
+> 建议长期备份 `public/gallery/`，它不受 Git 保护。图片压缩与后续增量上传流程见 [MAINTENANCE.md](MAINTENANCE.md)。
 
 ### 步骤 4：确认站点地址
 
@@ -206,7 +215,7 @@ cd /var/www/blog_firefly
 pnpm build
 ```
 
-构建会依次生成 LQIP、Astro 静态页面、字体子集、Pagefind 搜索索引。完成后确认：
+构建会依次生成访问量快照、LQIP、Astro 静态页面、字体子集、Pagefind 搜索索引。完成后确认：
 
 ```bash
 ls dist/index.html
@@ -214,6 +223,8 @@ ls dist/posts
 ls dist/gallery/net dist/gallery/scenery
 ls dist/pagefind
 ```
+
+访问量快照依赖 `~/.umami-stats.env`（见第 9 节）。首次部署 Umami 之前没有该文件，构建会打印 `[UMAMI-STATS] 未设置 UMAMI_DATABASE_URL，跳过访问量统计`，属正常现象，侧边栏不会显示这两项。
 
 构建期间出现 `No files found matching "**/*.md"` 的提示是正常的：`src/content/dynamic`、`src/content/projects` 已清空但目录保留。
 
@@ -385,9 +396,9 @@ git clone --depth 1 --single-branch --branch migrate/blog \
 
 > 不管用哪种方式，`public/gallery` 都不在仓库里，仍需按步骤 3 单独上传。
 
-### 3.2 稀疏克隆后的维护约定
+### 3.2 稀疏克隆后的目录范围
 
-如果使用了方案 A（`--filter=blob:none --sparse`），服务器仓库**只检出以下目录**：
+如果使用了 `--filter=blob:none --sparse` 做稀疏克隆，服务器仓库**只检出以下目录**：
 
 ```text
 根目录文件（package.json、astro.config.mjs、pnpm-lock.yaml 等）
@@ -408,437 +419,11 @@ docs/
 
 对部署的影响：**没有影响**。`pnpm build` 会正常生成 `dist/`，只是产物里不再包含看板娘资源；`prune-pio-assets.ts` 会提示没有可裁剪资源，这是正常现象。
 
-日常维护需要注意：
-
-1. **不要执行 `git sparse-checkout disable`**。它会尝试恢复全部文件，包括 14.6 MiB 的 `public/pio`，可能再次卡在慢速下载。
-
-2. 查看当前检出了哪些目录：
-
-   ```bash
-   git sparse-checkout list
-   ```
-
-3. 以后如果要启用看板娘：
-
-   ```bash
-   cd /var/www/blog_firefly
-   git sparse-checkout add public/pio
-   ```
-
-   然后把 `src/config/pioConfig.ts` 中 `live2dWidgetConfig.enable` 或 `spineModelConfig.enable` 改为 `true`，再 `pnpm build`。
-
-4. 用 Git 更新模板后，稀疏配置会保留。但**如果上游新增了新的顶层目录**（例如 `packages/`），默认不会检出，需要手动加入：
-
-   ```bash
-   git sparse-checkout add packages
-   ```
-
-   同理，如果上游新增了 `public/` 下的其他子目录（例如 `public/images/`），也需要 `git sparse-checkout add public/images`。
-
-5. 文章与动态更新仍然按第 4 节用 `scp` / `rsync` 上传，不受稀疏检出影响。
-
-6. `git reset --hard FETCH_HEAD` 不会删除 `public/gallery`，也不会改变稀疏配置；继续遵守“禁止 `git clean -fdx`”。
-
-> 已经检出的 `public/assets/` 包含音乐、字体、图片等资源；`public/assets/music` 已被 `.gitignore` 忽略，不随 Git 更新，音频和封面需按 4.4 手动上传。
+启用看板娘、上游新增顶层目录、更新代码时的稀疏检出约定，见 [MAINTENANCE.md](MAINTENANCE.md) 的「稀疏克隆维护约定」。
 
 ---
 
-## 4. 日常更新文章与动态
-
-Firefly 是静态站点，**上传 Markdown 后必须重新构建**才会生效，不能像旧 FastAPI 那样“放进去就能看”。
-
-文章（`src/content/posts/`）与动态（`src/content/dynamic/`）都不入 Git，上传方式相同；动态的具体写法见 4.4 节的“动态维护”。
-
-### 4.1 本地写文章
-
-在本地工作区创建：
-
-```text
-src/content/posts/<slug>.md
-```
-
-frontmatter 示例：
-
-```yaml
----
-title: 文章标题
-published: 2026-11-05
-description: 文章摘要
-slug: my-new-post
-draft: false
----
-```
-
-本地可先预览：
-
-```bash
-pnpm dev
-```
-
-### 4.2 上传文章
-
-在本地 Windows PowerShell：
-
-```powershell
-scp -r .\src\content\posts\* ubuntu@124.223.166.233:/var/www/blog_firefly/src/content/posts/
-```
-
-或使用 rsync（不删除服务器上的其他文章）：
-
-```bash
-rsync -avz src/content/posts/ ubuntu@124.223.166.233:/var/www/blog_firefly/src/content/posts/
-```
-
-### 4.3 服务器构建
-
-```bash
-ssh ubuntu@124.223.166.233
-cd /var/www/blog_firefly
-pnpm build
-```
-
-Nginx 直接读取 `dist/`，不需要重启 Nginx。
-
-需要保留上一版产物用于回滚时，构建前执行：
-
-```bash
-cp -a dist dist.bak
-```
-
-> 因为 Nginx 已经对 HTML 设置了 `Cache-Control: no-cache`，正常的刷新/跳转都会拿到新 HTML，直接 `pnpm build` 即可。只有在部署瞬间仍有用户停留于旧页面、且希望完全避免旧资源 404 时，才需要看下面的可选方案。
-
-#### 可选：保留上一版哈希资源
-
-如果访问量较大、部署比较频繁，可以在构建时保留上一版 `_astro` 哈希文件：
-
-```bash
-cd /var/www/blog_firefly
-
-rm -rf /tmp/firefly-astro-old
-cp -a dist/_astro /tmp/firefly-astro-old 2>/dev/null || true
-
-pnpm build
-
-rsync -a --ignore-existing /tmp/firefly-astro-old/ dist/_astro/
-find dist/_astro -type f -mtime +7 -delete
-```
-
-哈希文件名不会冲突，保留 7 天是安全的。个人博客通常可以跳过这一步。
-
-### 4.4 其他更新
-
-| 修改内容 | 操作 |
-| --- | --- |
-| 新增相册图片 | 先运行 `pnpm optimize-gallery` 压缩，再上传 `.webp` 并 `pnpm build` |
-| 修改站点配置 | 上传 `src/config/*` 对应文件，然后 `pnpm build` |
-| 修改依赖 | 服务器先 `pnpm install`，再 `pnpm build` |
-| 删除文章 | 本地删除后，服务器手动删除对应文件，再 `pnpm build` |
-| 新增/修改动态 | 与文章相同，用 `scp` / `rsync` 上传到服务器 `src/content/dynamic/`，再 `pnpm build` |
-| 删除动态 | 本地与服务器同时删除对应 md，再 `pnpm build` |
-| 修改相册封面/名称 | 修改 `src/config/galleryConfig.ts`，上传后重新构建 |
-
-> `scp` / `rsync` 默认不会删除服务器上多出来的旧文件，删除文章或动态需要手动处理。
-> 文章与动态都不入 Git，服务器是唯一副本，改动后务必上传并重新构建。
-
-#### 相册图片压缩与上传
-
-`public/gallery/` 已被 `.gitignore` 忽略，图片只能手动上传。**不要直接上传原图**：原图单张可能 2–6 MB，整页会到几十 MB。
-
-标准流程：
-
-**1. 本地放入原图**
-
-```text
-public/gallery/<albumId>/01-xxx.jpg
-```
-
-文件名使用两位数字前缀控制顺序，尽量只用小写字母、数字、连字符。
-
-**2. 本地压缩**
-
-```bash
-pnpm optimize-gallery
-```
-
-脚本会：
-
-- 把原图转成 WebP（最长边 1920px，质量 80）
-- 把原图移动到 `.gallery-originals/<albumId>/` 备份（已被 Git 忽略）
-- 自动把 `galleryConfig.ts` 中指向旧扩展名的封面路径改成 `.webp`
-- 跳过已经符合要求的 WebP 和 GIF 动图
-
-需要强制重新压缩全部图片时：
-
-```bash
-pnpm optimize-gallery --force
-```
-
-**3. 本地预览**
-
-```bash
-pnpm dev
-```
-
-确认 `/gallery/<albumId>/` 顺序、封面、灯箱正常。相册图片不入库，`galleryConfig.ts` 的封面改动需要提交。
-
-**4. 上传到服务器**
-
-服务器先建目录（首次或新增相册时）：
-
-```bash
-mkdir -p /var/www/blog_firefly/public/gallery/<albumId>
-```
-
-本地 PowerShell：
-
-```powershell
-$albumId = "two-dimensional"    # 改成自己的相册 id
-scp -r .\public\gallery\$albumId\* ubuntu@124.223.166.233:/var/www/blog_firefly/public/gallery/$albumId/
-```
-
-推荐用 rsync 镜像整个相册目录，`--delete` 会删除服务器上已被替换的旧 `.jpg/.png`：
-
-```bash
-rsync -avz --progress --delete public/gallery/two-dimensional/ ubuntu@124.223.166.233:/var/www/blog_firefly/public/gallery/two-dimensional/
-```
-
-**5. 服务器重新构建**
-
-```bash
-cd /var/www/blog_firefly
-pnpm build
-ls dist/gallery/<albumId>/
-```
-
-注意：
-
-- 目录名必须与 `src/config/galleryConfig.ts` 里的 `id` 完全一致；
-- 新增相册除了传图，还要在 `galleryConfig.ts` 的 `albums` 数组中登记；
-- 修改过的 `galleryConfig.ts` 需要通过 Git 或 scp 同步到服务器；
-- 压缩前原图保存在本地 `.gallery-originals/`，请勿删除，必要时可重新生成；
-- 服务器上只需要保留压缩后的 `.webp`，不要保留原图，否则会白白占用带宽和磁盘。
-
-#### 上传音乐
-
-`public/assets/music/**` 同样被 `.gitignore` 忽略，音频和封面需手动上传：
-
-```powershell
-# 本地 PowerShell 执行
-scp .\public\assets\music\*.mp3 ubuntu@124.223.166.233:/var/www/blog_firefly/public/assets/music/
-scp -r .\public\assets\music\cover\* ubuntu@124.223.166.233:/var/www/blog_firefly/public/assets/music/cover/
-```
-
-服务器目录不存在时先创建：
-
-```bash
-mkdir -p /var/www/blog_firefly/public/assets/music/cover
-```
-
-```bash
-# 服务器上构建并验证
-cd /var/www/blog_firefly
-pnpm build
-ls dist/assets/music/
-```
-
-注意：
-
-- 新增歌曲需同时修改 `src/config/musicConfig.ts` 的播放列表，配置走 Git 或 scp 上传；
-- 文件名含中文或空格时，PowerShell 命令中要用双引号包住路径。
-
-#### 动态维护
-
-动态是短内容，每条一个 Markdown 文件，存放在 `src/content/dynamic/`。与文章一致，**动态不提交到 Git**（`src/content/dynamic/**` 已加入 `.gitignore`，只保留 `.gitkeep`），需要单独上传到服务器。
-
-**文件命名**
-
-```text
-src/content/dynamic/YYYY-MM-DD-HHmmss.md
-```
-
-文件名只用于唯一标识，页面显示的时间取自 frontmatter 的 `published`。
-
-**frontmatter**
-
-```yaml
----
-published: 2026-11-10 21:03:10
-pinned: false
-location: ""
----
-正文内容，支持 Markdown。
-```
-
-| 字段 | 必填 | 说明 |
-| --- | --- | --- |
-| `published` | 是 | 发布时间，格式 `YYYY-MM-DD HH:mm:ss` |
-| `pinned` | 否 | `true` 时置顶 |
-| `location` | 否 | 位置，显示在动态下方，留空则不显示 |
-
-排序规则：置顶优先，其余按 `published` 降序。
-
-**新增动态**
-
-推荐用脚手架，会自动按站点时区生成文件名和 `published`：
-
-```bash
-pnpm new-d "今天的一点想法"
-# 与 pnpm new-dynamic "今天的一点想法" 等价
-```
-
-也可以手动在 `src/content/dynamic/` 新建 md，注意文件名不要重复。
-
-**带图片的动态**
-
-正文使用标准 Markdown 图片语法：
-
-```md
-![描述](/assets/images/dynamic/photo.webp)
-```
-
-- 绝对路径指向 `public/`，图片需要单独上传；
-- 也可以直接使用远程 URL；
-- 构建时图片会从正文抽出，按图片列表单独渲染。
-
-**本地预览**
-
-```bash
-pnpm dev
-```
-
-检查 `/dynamic/` 页面和侧边栏「最新动态」的排序、图片、置顶是否正常。
-
-**上传与发布**
-
-动态不入 Git，`git pull` 不会带来任何动态文件，必须手动上传：
-
-```powershell
-# 本地 PowerShell 执行，上传全部动态
-scp -r .\src\content\dynamic\* ubuntu@124.223.166.233:/var/www/blog_firefly/src/content/dynamic/
-```
-
-或只上传某一条：
-
-```powershell
-scp .\src\content\dynamic\2026-11-10-210310.md ubuntu@124.223.166.233:/var/www/blog_firefly/src/content/dynamic/
-```
-
-使用 rsync 镜像整个目录（推荐，可断点续传）：
-
-```bash
-rsync -avz --progress src/content/dynamic/ ubuntu@124.223.166.233:/var/www/blog_firefly/src/content/dynamic/
-```
-
-服务器上构建：
-
-```bash
-ssh ubuntu@124.223.166.233
-cd /var/www/blog_firefly
-pnpm build
-```
-
-服务器目录不存在时先创建：
-
-```bash
-mkdir -p /var/www/blog_firefly/src/content/dynamic
-```
-
-注意：
-
-- 服务器上的动态是唯一副本，请定期备份 `src/content/dynamic/`，它对 Git 不可恢复；
-- 不要执行 `git clean -fdx`，会删除该目录下未入库的动态；
-- 新增带图片的动态时，正文引用的 `public/assets/images/dynamic/` 图片也要一并上传（见下方“带图片的动态”）。
-
-**删除动态**
-
-在本地和服务器上同时删除对应 md，然后在服务器执行 `pnpm build`。`scp` 不会删除文件，必须手动移除。
-
-**相关配置**
-
-| 内容 | 位置 |
-| --- | --- |
-| 页面开关 | `src/config/siteConfig.ts` 的 `pages.dynamic` |
-| 导航入口 | `src/config/navBarConfig.ts` 的 `LinkPresets.Dynamic` |
-| 页面标题、每页数量、数据源 | `src/config/dynamicConfig.ts` |
-| 侧边栏「最新动态」 | `src/config/sidebarConfig.ts` 中 `type: "dynamic"` 的组件 |
-| 评论 | `src/config/commentConfig.ts`，`type: "none"` 时不显示 |
-
----
-
-## 5. 用 Git 更新模板代码
-
-服务器是浅克隆（`--depth 1`），更新时保持浅拉取即可：
-
-```bash
-cd /var/www/blog_firefly
-
-git fetch --depth 1 origin migrate/blog
-git reset --hard FETCH_HEAD
-
-# package.json / pnpm-lock.yaml 有变化时
-pnpm install --frozen-lockfile
-
-pnpm build
-```
-
-说明：
-
-- `git reset --hard` 会覆盖被构建改写的生成文件（`lqips.json`、`github-card-data.json` 等），因此不需要再手动 `git checkout --`。
-- `git reset --hard` **只影响已跟踪文件**，不会删除未入库的 `src/content/posts/`、`src/content/dynamic/`、`public/gallery/`。
-- **不要执行 `git clean -fdx`**，否则会删除文章、动态和相册原图。
-- 如果远程名改成了 `gitee`，把上面的 `origin` 换成 `gitee`。
-- 如果使用第 3.1 节方案 B（源码压缩包，没有 `.git`），更新时重新下载压缩包覆盖即可，覆盖前先备份 `src/content/posts/`、`src/content/dynamic/`、`public/gallery/`。
-
----
-
-## 6. 备份与回滚
-
-### 6.1 备份
-
-```bash
-cd /var/www/blog_firefly
-
-# 文章与动态（不在 Git 中，丢了无法从仓库恢复）
-tar -czf ~/firefly-content-$(date +%F).tar.gz src/content/posts src/content/dynamic
-
-# 相册原图（不在 Git 中）
-tar -czf ~/firefly-gallery-$(date +%F).tar.gz public/gallery
-
-# 上一版构建产物
-cp -a dist dist.bak
-
-# Nginx 配置
-sudo cp /etc/nginx/conf.d/blog_firefly.conf ~/firefly-nginx-$(date +%F).conf
-```
-
-建议定期把 `~/firefly-content-*.tar.gz`、`~/firefly-gallery-*.tar.gz` 下载到本地或对象存储。
-
-### 6.2 回滚
-
-如果新构建异常：
-
-```bash
-cd /var/www/blog_firefly
-rm -rf dist
-mv dist.bak dist
-sudo systemctl reload nginx
-```
-
-如果代码层面异常：
-
-```bash
-cd /var/www/blog_firefly
-git log --oneline -5
-git checkout <上一个正常提交>
-pnpm install --frozen-lockfile
-pnpm build
-```
-
-切回分支时注意保留 `public/gallery/`，它不在 Git 中，不会被 `git checkout` 删除。
-
----
-
-## 7. 后续切换域名
+## 4. 后续切换域名
 
 当前只有公网 IP，只能使用 HTTP。后续有域名时：
 
@@ -849,11 +434,13 @@ pnpm build
    site_url: "https://<域名>",
    ```
 
-3. 修改 Nginx：
+3. 修改 Nginx 与统计相关配置：
 
    ```nginx
    server_name <域名>;
    ```
+
+   同时把 `src/config/analyticsConfig.ts` 里的 `scriptUrl`、`replaysScriptUrl` 从 `http://124.223.166.233/stats/...` 改成 `https://<域名>/stats/...`，否则 HTTPS 页面会按混合内容拦截统计脚本。
 
 4. 申请证书并启用 HTTPS：
 
@@ -864,33 +451,29 @@ pnpm build
 
 5. 重新构建：`pnpm build`。
 6. 确认 80 端口跳转到 443。
+7. 视需要更新 Artalk 的 `trusted_domains`（见第 8 节）。
 
 > `site_url` 改动后必须重新构建，否则 RSS、Sitemap、canonical 仍指向旧地址。
 
 ---
 
-## 8. 常见问题
+## 5. 常见问题
 
 | 现象 | 排查 |
 | --- | --- |
 | 首页 502/无法连接 | Nginx 是否启动、80 端口是否放行、云安全组是否开放 |
 | 首页 404 | Nginx `root` 是否指向 `/var/www/blog_firefly/dist`，`dist/index.html` 是否存在 |
-| 相册页为空或封面 404 | `public/gallery/net`、`public/gallery/scenery` 是否有图片，是否在**上传图片后**重新构建 |
-| 图片 403 | 目录权限；确保 `public/gallery` 对运行 Nginx 的用户可读 |
-| 新文章不显示 | 是否上传到 `src/content/posts/`，是否在服务器执行了 `pnpm build` |
-| 搜索无结果 | 是否使用完整 `pnpm build`（包含 Pagefind），而不是仅 `astro build` |
-| `pnpm build` 被杀 | 内存不足，增加 swap 或升级服务器 |
-| `git pull` 冲突 | 先还原 `src/constants/lqips.json`、`src/constants/github-card-data.json` |
-| `git clean -fdx` 后相册消失 | 该命令会删除未入库文件；从备份恢复 `public/gallery` |
-| `git clean -fdx` 后文章/动态消失 | 同上，`src/content/posts`、`src/content/dynamic` 也不在 Git 中，需从备份恢复 |
-| 动态上传后页面没变 | 是否上传到了服务器 `src/content/dynamic/`，是否在服务器执行了 `pnpm build` |
-| 页面样式错乱 | 是否直接修改了 `dist/`；应修改 `src/` 后重新构建 |
-| 刷新后样式丢失，控制台 404 `Layout.*.css` | 旧 HTML 引用了已删除的哈希资源。确认 HTML 响应为 `Cache-Control: no-cache`；频繁部署时可选用 4.3 节的“保留上一版哈希资源” |
 | 构建报 `CannotFetchFontFile` / 字体下载失败 | 多为服务器访问 `cdn.jsdelivr.net` 临时失败，可先重试；持续失败时考虑自托管字体或配置可用的网络代理 |
+| `/stats` 返回 404 | Nginx `location` 必须写 `/stats`（无尾斜杠）；写成 `/stats/` 时 Next 重定向到 `/stats` 后会落空 |
+| Umami 图表时间偏移 | 检查 `/etc/umami.env` 的 `TZ=Asia/Shanghai`、系统时区、后台站点时区，见 [UMAMI_ISSUES.md](UMAMI_ISSUES.md) |
+| Umami Realtime 空白 | 确认用 standalone server 启动、Nginx 已关 `proxy_buffering`，见 [UMAMI_ISSUES.md](UMAMI_ISSUES.md) |
+| 侧边栏没有访问量 | 服务器是否配置 `~/.umami-stats.env`，构建日志是否有 `[UMAMI-STATS]` 输出 |
+
+内容发布、相册、搜索、构建、Git 更新相关的问题见 [MAINTENANCE.md](MAINTENANCE.md) 的常见问题。
 
 ---
 
-## 9. 当前已确认配置
+## 6. 当前已确认配置
 
 | 项 | 值 |
 | --- | --- |
@@ -902,14 +485,18 @@ pnpm build
 | Nginx root | `/var/www/blog_firefly/dist` |
 | 相册目录 | `/var/www/blog_firefly/public/gallery/{net,scenery,two-dimensional}` |
 | 不入 Git 的内容 | `src/content/posts/`、`src/content/dynamic/`、`public/gallery/`、`public/assets/music/` |
-| 页面开关 | 动态、相册、关于、留言板开启；友链、项目、书签、打赏、追番等关闭 |
+| 页面开关 | 动态、相册、关于、留言板开启；友链、项目、书签、打赏等关闭 |
 | 评论 | Artalk，留言板与文章启用，动态评论关闭 |
 | Artalk 后端 | `http://124.223.166.233:8080` → `127.0.0.1:23366`（systemd） |
+| Umami 后端 | `127.0.0.1:3001`（systemd `umami.service`，standalone server），Nginx 反代到 `/stats` |
+| Umami 数据 | 本机 PostgreSQL，库 `umami` |
+| Umami Website ID | `320a53f1-31c8-426b-9c13-d0d2b5ec9a17` |
+| 访问量快照 | `~/.umami-stats.env` → `src/constants/umami-stats.json`（已 gitignore） |
 | 访问协议 | HTTP（无域名，暂不启用 HTTPS） |
 
 ---
 
-## 10. 首次部署执行清单
+## 7. 首次部署执行清单
 
 - [x] 服务器已安装 Node >= 22.23.0、pnpm 11.22.0、Git、rsync、Nginx
 - [x] 云安全组与系统防火墙已放行 80 端口
@@ -922,14 +509,16 @@ pnpm build
 - [x] Nginx 配置已写入并通过 `nginx -t`
 - [ ] 首页、文章、相册、动态、RSS、Sitemap、404 均验证通过
 - [ ] `src/content/` 与 `public/gallery` 已做第一份备份
+- [ ] Umami 已部署：`umami.service` active、`curl -I http://127.0.0.1:3001/stats` 返回 200、`/stats` 可登录
+- [ ] `~/.umami-stats.env` 已配置，`pnpm build` 输出 `[UMAMI-STATS]` 且侧边栏显示访问量
 
 ---
 
-## 11. Artalk 评论系统（留言板 + 文章）
+## 8. Artalk 评论系统（留言板 + 文章）
 
 评论后端单独运行，站点仍是纯静态；`commentConfig.type = "artalk"`，前端向 `http://124.223.166.233:8080` 请求 API。
 
-### 11.1 安装二进制
+### 8.1 安装二进制
 
 ```bash
 uname -m    # x86_64 对应 linux_amd64
@@ -945,7 +534,7 @@ sudo mv artalk /usr/bin/artalk
 artalk version
 ```
 
-### 11.2 创建运行用户与目录
+### 8.2 创建运行用户与目录
 
 ```bash
 sudo groupadd --system artalk
@@ -956,7 +545,7 @@ sudo useradd --system --gid artalk --create-home \
 sudo mkdir -p /etc/artalk /var/lib/artalk/data
 ```
 
-### 11.3 配置文件
+### 8.3 配置文件
 
 ```bash
 sudo /usr/bin/artalk gen conf -lang zh-CN /etc/artalk/artalk.yml
@@ -994,7 +583,7 @@ sudo chown root:artalk /etc/artalk/artalk.yml
 sudo chmod 640 /etc/artalk/artalk.yml
 ```
 
-### 11.4 systemd 服务
+### 8.4 systemd 服务
 
 `/etc/systemd/system/artalk.service`：
 
@@ -1028,7 +617,7 @@ systemctl status artalk --no-pager
 curl -I http://127.0.0.1:23366/
 ```
 
-### 11.5 创建管理员
+### 8.5 创建管理员
 
 ```bash
 sudo -u artalk /usr/bin/artalk admin -w /var/lib/artalk -c /etc/artalk/artalk.yml
@@ -1036,7 +625,7 @@ sudo -u artalk /usr/bin/artalk admin -w /var/lib/artalk -c /etc/artalk/artalk.ym
 
 按提示设置用户名与密码，密码会以哈希形式存入数据库。
 
-### 11.6 Nginx 8080 反向代理
+### 8.6 Nginx 8080 反向代理
 
 `/etc/nginx/conf.d/artalk.conf`：
 
@@ -1070,7 +659,7 @@ curl -I http://124.223.166.233:8080/
 
 再用手机流量访问一次，确认非 80/443 端口没有被运营商或公共网络拦截。
 
-### 11.7 前端配置（仓库内）
+### 8.7 前端配置（仓库内）
 
 | 文件 | 值 |
 | --- | --- |
@@ -1080,9 +669,9 @@ curl -I http://124.223.166.233:8080/
 | `src/config/dynamicConfig.ts` | `showComment: false` |
 | `src/components/comment/Artalk.astro` | 使用 npmmirror 2.10.1 的 CSS/JS |
 
-修改后按第 4 节流程同步到服务器并 `pnpm build`。
+修改后按 [MAINTENANCE.md](MAINTENANCE.md) 的发布流程同步到服务器并 `pnpm build`。
 
-### 11.8 备份与排错
+### 8.8 备份与排错
 
 备份评论数据：
 
@@ -1101,3 +690,108 @@ sudo systemctl start artalk
 | 垃圾评论 | 在 Artalk 后台开启评论审核或验证码 |
 
 注意：当前站点为 HTTP，管理员密码与会话明文传输，请使用独立强密码，避免在公共网络登录后台；长期建议启用 HTTPS。
+
+---
+
+## 9. Umami 访问统计
+
+访问统计后端独立运行，站点仍是纯静态。完整步骤、构建期踩坑与排错见 [UMAMI_PLAN.md](UMAMI_PLAN.md)，未解决的问题记录在 [UMAMI_ISSUES.md](UMAMI_ISSUES.md)。
+
+### 9.1 运行形态
+
+| 项 | 值 |
+| --- | --- |
+| 源码 | `/opt/umami`，`output: standalone` |
+| 启动 | systemd `umami.service`：`node .next/standalone/server.js` |
+| 监听 | `127.0.0.1:3001`（未暴露公网） |
+| 数据库 | 本机 PostgreSQL，库 `umami` |
+| 入口 | Nginx `location /stats` → `http://124.223.166.233/stats` |
+| 前端 | `src/config/analyticsConfig.ts` 的 `umamiAnalytics` |
+
+### 9.2 环境文件
+
+`/etc/umami.env`（root 600）：`BASE_PATH=/stats`、`DATABASE_URL`、`APP_SECRET`、`PORT=3001`、`HOSTNAME=127.0.0.1`、`HOME=/home/ubuntu`、`TZ=Asia/Shanghai`。
+
+启动命令必须是 standalone server：
+
+```ini
+ExecStart=/usr/bin/node /opt/umami/.next/standalone/server.js
+```
+
+用 `pnpm start`（`next start`）会提示 `does not work with "output: standalone"`，并导致实时图表异常。
+
+### 9.3 Nginx 反代
+
+站点配置文件顶部（`server {}` 之外）定义 map：
+
+```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+```
+
+在 `server {}` 内加入：
+
+```nginx
+# 不要写成 /stats/，Next.js 会把 /stats/ 重定向到 /stats
+location /stats {
+    proxy_pass http://127.0.0.1:3001;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 3600s;
+}
+```
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+curl -I http://124.223.166.233/stats      # 期望 200
+```
+
+### 9.4 构建期访问量快照
+
+侧边栏「站点统计」的累计访客数 / 浏览量由 `scripts/fetch-umami-stats.ts` 在 `pnpm build` 开始时查库生成，写入 `src/constants/umami-stats.json`（已 gitignore）。
+
+`~/.umami-stats.env`（ubuntu 600）：
+
+```ini
+UMAMI_DATABASE_URL=postgresql://umami:数据库密码@localhost:5432/umami
+UMAMI_WEBSITE_ID=320a53f1-31c8-426b-9c13-d0d2b5ec9a17
+```
+
+构建前加载：`set -a; . ~/.umami-stats.env; set +a`。
+
+### 9.5 排错要点
+
+| 现象 | 处理 |
+| --- | --- |
+| `/stats` 404 | `location` 写 `/stats`，不能带尾斜杠 |
+| 前端资源 404 / 页面错乱 | 必须用 standalone server 启动，并确认 `.next/standalone/.next/static`、`public` 已复制 |
+| 图表时间偏移 | 系统时区、`/etc/umami.env` 的 `TZ`、后台站点时区三处都要为东八区 |
+| Realtime 空白 | Nginx 需 `proxy_buffering off` + `proxy_read_timeout`，且必须 standalone 启动 |
+| 侧边栏无数字 | 是否加载了 `~/.umami-stats.env`，构建日志有无 `[UMAMI-STATS]` |
+
+### 9.6 备份
+
+```bash
+pg_dump "postgresql://umami:密码@localhost:5432/umami" | gzip > ~/umami-$(date +%F).sql.gz
+```
+
+---
+
+## 10. 相关文档
+
+| 文档 | 内容 |
+| --- | --- |
+| [MAINTENANCE.md](MAINTENANCE.md) | 日常维护：发布文章、动态、相册、音乐、模板更新、备份回滚、排错 |
+| [TEMPLATE.md](TEMPLATE.md) | 模板结构、配置项、内容模型 |
+| [UMAMI_PLAN.md](UMAMI_PLAN.md) | Umami 接入细节与踩坑 |
+| [ARTALK_PLAN.md](ARTALK_PLAN.md) | Artalk 接入细节 |
+| [MIGRATION_PLAN.md](MIGRATION_PLAN.md) | 旧站迁移历史归档 |

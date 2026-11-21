@@ -80,19 +80,8 @@ export function formatDateI18n(
 	// 语言代码映射
 	const localeMap: Record<string, string> = {
 		zh_CN: "zh-CN",
-		zh_TW: "zh-TW",
 		en: "en-US",
-		ja: "ja-JP",
-		ko: "ko-KR",
-		es: "es-ES",
-		th: "th-TH",
-		vi: "vi-VN",
-		tr: "tr-TR",
-		id: "id-ID",
-		fr: "fr-FR",
-		de: "de-DE",
 		ru: "ru-RU",
-		ar: "ar-SA",
 	};
 
 	const locale = localeMap[lang] || "en-US";

@@ -58,24 +58,6 @@ const KEY_PAGES: KeyPage[] = [
 		pageKey: "booknav",
 	},
 	{
-		labelKey: I18nKey.bilibili,
-		path: "/bilibili/",
-		descKey: I18nKey.bilibiliSubtitle,
-		pageKey: "bilibili",
-	},
-	{
-		labelKey: I18nKey.bangumi,
-		path: "/bangumi/",
-		descKey: I18nKey.bangumiSubtitle,
-		pageKey: "bangumi",
-	},
-	{
-		labelKey: I18nKey.vndb,
-		path: "/vndb/",
-		descKey: I18nKey.vndbSubtitle,
-		pageKey: "vndb",
-	},
-	{
 		labelKey: I18nKey.mal,
 		path: "/myanimelist/",
 		descKey: I18nKey.malSubtitle,

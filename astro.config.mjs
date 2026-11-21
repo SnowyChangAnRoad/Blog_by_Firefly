@@ -258,15 +258,6 @@ export default defineConfig({
 				if (pathname === "/booknav/" && !siteConfig.pages.booknav) {
 					return false;
 				}
-				if (pathname === "/bilibili/" && !siteConfig.pages.bilibili) {
-					return false;
-				}
-				if (pathname === "/bangumi/" && !siteConfig.pages.bangumi) {
-					return false;
-				}
-				if (pathname === "/vndb/" && !siteConfig.pages.vndb) {
-					return false;
-				}
 				if (pathname === "/myanimelist/" && !siteConfig.pages.mal) {
 					return false;
 				}

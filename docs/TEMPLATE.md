@@ -1,7 +1,7 @@
 > **模板使用说明（归档自原 README）**
 >
 > 本文说明如何基于 Firefly 模板搭建、配置、写作与发布博客。
-> 当前站点的项目说明见 [根目录 README](../README.md)，部署见 [DEPLOYMENT.md](./DEPLOYMENT.md)。
+> 当前站点的项目说明见 [根目录 README](../README.md)，部署见 [DEPLOYMENT.md](./DEPLOYMENT.md)，日常维护见 [MAINTENANCE.md](./MAINTENANCE.md)。
 
 # Firefly 博客项目说明书
 
@@ -31,7 +31,7 @@
 
 ## 1. 项目概览
 
-Firefly 是一个**以配置驱动的静态个人博客模板**：内容在 `src/content` 中用 Markdown/MDX 编写，页面由 Astro 在构建时生成，交互部分用 Svelte 5 岛屿实现。项目没有后端、数据库或登录系统；评论、统计、音乐、追番等能力都依赖第三方服务或构建期抓取。
+Firefly 是一个**以配置驱动的静态个人博客模板**：内容在 `src/content` 中用 Markdown/MDX 编写，页面由 Astro 在构建时生成，交互部分用 Svelte 5 岛屿实现。项目没有后端、数据库或登录系统；评论、统计、音乐等能力都依赖第三方服务或构建期抓取。
 
 | 项目 | 说明 |
 | --- | --- |
@@ -52,7 +52,7 @@ Firefly 是一个**以配置驱动的静态个人博客模板**：内容在 `src
 | 分类 | 已有能力 |
 | --- | --- |
 | 文章 | Markdown/MDX、草稿、置顶、系列、加密文章、封面与 LQIP、上下篇、相关推荐、分享海报、OG 图、RSS |
-| 页面 | 首页分页、归档筛选、分类、标签、系列、搜索、友链、留言板、动态、相册、书签导航、B 站追番、Bangumi、VNDB、MyAnimeList、关于、打赏、404 |
+| 页面 | 首页分页、归档筛选、分类、标签、系列、搜索、友链、留言板、动态、相册、书签导航、MyAnimeList、关于、打赏、404 |
 | 视觉 | 横幅/全屏/透明覆盖/纯色四种壁纸模式、水波纹、渐变过渡、樱花、明暗模式、主题色相、双侧栏、可排序侧边栏小部件、移动端布局、Swup 页面过渡 |
 | 内容增强 | 提醒框、剧透、图片网格、Wiki Link 文章卡片、GitHub 仓库卡片、Tab 代码组、MDX 组件、灯箱、浮动目录 |
 | 第三方 | Twikoo / Waline / Giscus / Disqus / Artalk、Google Analytics / Clarity / Umami / 51la、Meting / 本地音乐、Live2D / Spine 看板娘、Memos |
@@ -211,9 +211,6 @@ CI 中的构建任务使用的就是这条命令。代价是**没有 Pagefind �
 | `/gallery/` | `src/pages/gallery/index.astro` | 相册列表；受 `pages.gallery` 控制 |
 | `/gallery/<albumId>/` | `src/pages/gallery/[album].astro` | 单个相册；可设置前端加密密码 |
 | `/booknav/` | `src/pages/booknav.astro` | 书签导航；受 `pages.booknav` 控制 |
-| `/bilibili/` | `src/pages/bilibili.astro` | B 站追番/追剧；构建时抓取；受 `pages.bilibili` 控制 |
-| `/bangumi/` | `src/pages/bangumi.astro` | Bangumi；`static` 构建时抓取或 `dynamic` 浏览器请求；受 `pages.bangumi` 控制 |
-| `/vndb/` | `src/pages/vndb.astro` | VNDB；static/dynamic 两种模式；受 `pages.vndb` 控制 |
 | `/myanimelist/` | `src/pages/myanimelist.astro` | MyAnimeList；构建时抓取；受 `pages.mal` 控制 |
 | `/about/` | `src/pages/about.astro` | 关于页，正文来自 `spec/about.md`；**始终存在** |
 | `/sponsor/` | `src/pages/sponsor.astro` | 打赏页；受 `pages.sponsor` 控制 |
@@ -428,7 +425,7 @@ import { siteConfig, sidebarLayoutConfig } from "@/config";
 | 文件 | 导出 | 控制内容 |
 | --- | --- | --- |
 | `index.ts` | 全部配置与类型 | 统一出口 |
-| `siteConfig.ts` | `siteConfig` | 站点身份、主题色、页面宽度、卡片、favicon、导航栏、开始日期、时区、分类栏、标签样式、归档折叠、文章列表布局、分页、文章页、Bilibili/Bangumi/VNDB/MAL、图片优化、语言、页面开关 |
+| `siteConfig.ts` | `siteConfig` | 站点身份、主题色、页面宽度、卡片、favicon、导航栏、开始日期、时区、分类栏、标签样式、归档折叠、文章列表布局、分页、文章页、MAL、图片优化、语言、页面开关 |
 | `navBarConfig.ts` | `navBarConfig`、`navBarSearchConfig`、`LinkPresets` | 导航菜单结构、链接预设、搜索方式 |
 | `sidebarConfig.ts` | `sidebarLayoutConfig` | 侧边栏位置、平板显示哪侧、文章页隐藏/保持、左右及移动端小部件顺序与开关 |
 | `backgroundWallpaper.ts` | `backgroundWallpaper` | 壁纸模式、图片/视频、标题、打字机、链接、轮播、水波纹、渐变、导航栏透明、遮罩、全屏模式 |
@@ -467,7 +464,7 @@ import { siteConfig, sidebarLayoutConfig } from "@/config";
 | favicon | `siteConfig.favicon` |
 | 导航栏 Logo/标题/宽度/对齐/吸顶 | `siteConfig.navbar` |
 | 运行天数起点 | `siteConfig.siteStartDate` |
-| 时区（RSS、Bangumi、动态时间戳） | `siteConfig.timezone` |
+| 时区（RSS、动态时间戳） | `siteConfig.timezone` |
 | 分类快捷栏与样式 | `siteConfig.categoryBar`、`categoryStyle` |
 | 标签样式 | `siteConfig.tagStyle` |
 | 归档是否折叠往年 | `siteConfig.foldArticle` |
@@ -475,7 +472,7 @@ import { siteConfig, sidebarLayoutConfig } from "@/config";
 | 每页文章数 | `siteConfig.pagination.postsPerPage` |
 | 提醒框主题 | `siteConfig.post.rehypeCallouts` |
 | 上次编辑卡片、文章末尾分享栏、分享海报、OG 图 | `siteConfig.post` |
-| 媒体页账号/模式/NSFW | `siteConfig.bilibili`、`bangumi`、`vndb`、`mal` |
+| MAL 账号/NSFW | `siteConfig.mal` |
 | 图片格式/质量/防盗链 | `siteConfig.imageOptimization` |
 | 页面开关 | `siteConfig.pages` |
 
@@ -505,14 +502,14 @@ import { siteConfig, sidebarLayoutConfig } from "@/config";
 
 | 变量 | 作用 | 取值 |
 | --- | --- | --- |
-| `PUBLIC_SITE_LANG` | 覆盖 `siteConfig.lang` | `zh_CN`、`zh_TW`、`en`、`ja`、`ru`、`ko`（也接受 `zh-cn` 等写法） |
+| `PUBLIC_SITE_LANG` | 覆盖 `siteConfig.lang` | `zh_CN`、`en`、`ru`（也接受 `zh-cn` 等写法） |
 | `PUBLIC_PAGES_<KEY>` | 覆盖页面开关，优先级高于 `siteConfig.pages` | `true/false/1/0/on/off/yes/no/enable/enabled/disable/disabled` |
 | `PUBLIC_DISPLAY_SETTINGS` | 覆盖“视图设置”面板总开关 | 同上 |
 | `CF_WORKERS` | 启用 `@astrojs/cloudflare` 适配器 | 任意非空值 |
 | `GITHUB_TOKEN` | 构建时刷新 GitHub 卡片数据，避免 API 限流 | GitHub Token |
 | `FIREFLY_BUILD_PLATFORM` | 覆盖侧边栏“站点信息”显示的构建平台名称 | 任意文本 |
 
-页面开关的 `<KEY>` 为：`FRIENDS`、`GUESTBOOK`、`DYNAMIC`、`GALLERY`、`BOOKNAV`、`BILIBILI`、`BANGUMI`、`VNDB`、`MAL`、`SPONSOR`。例如：
+页面开关的 `<KEY>` 为：`FRIENDS`、`GUESTBOOK`、`DYNAMIC`、`GALLERY`、`BOOKNAV`、`MAL`、`SPONSOR`。例如：
 
 ```bash
 PUBLIC_PAGES_GALLERY=false pnpm build
@@ -525,7 +522,7 @@ PUBLIC_SITE_LANG=en pnpm build
 - `displaySettingsConfig.enable = true` 会把设置面板及其依赖打进客户端；其中 `wallpaperModeSwitchable` 是体积大头，开启后约增加 **33 KB/页**。生产环境建议关闭或只保留必要子项。
 - `siteConfig.site_url` 必须是最终可访问的绝对地址，否则 RSS、Sitemap、OG 图、JSON-LD 中的链接会错误。
 - 预装图标集：`fa7-brands`、`fa7-regular`、`fa7-solid`、`material-symbols`、`simple-icons`；需要其他图标集时运行 `pnpm add @iconify-json/<图标集名>`。
-- 不要把真实令牌（如 `vndb.apiToken`）、统计 ID、评论服务密钥提交到公开仓库；敏感值放在部署平台环境变量中。
+- 不要把真实令牌、统计 ID、评论服务密钥提交到公开仓库；敏感值放在部署平台环境变量中。
 
 ---
 
@@ -536,20 +533,19 @@ PUBLIC_SITE_LANG=en pnpm build
 | 步骤 | 脚本 | 作用 | 产物/影响 |
 | --- | --- | --- | --- |
 | 1 | `scripts/generate-github-card-data.ts` | 扫描内容中的 `::github{repo=...}`，请求 GitHub API | `src/constants/github-card-data.json` |
-| 2 | `scripts/generate-lqips.ts` | 用 sharp 为 `src` + `public` 图片生成 2×2 渐变（跳过 favicon、pio、特效图、音乐、VNDB 封面） | `src/constants/lqips.json`；自动清理已删除图片的旧记录 |
-| 3 | `scripts/generate-vndb-covers.ts` | VNDB 封面下载（仅在配置开启时） | `public/vndb-covers/`（已 gitignore） |
-| 4 | `astro build` | 渲染全部页面、RSS、OG 图、API JSON | `dist/`；启用 Cloudflare 适配器时为 `dist/client` + `dist/server` |
-| 5 | `scripts/prune-pio-assets.ts` | 按看板娘开关删除未使用的模型/运行时 | 减小产物 |
-| 6 | `scripts/subset-fonts.ts` | 扫描构建后 HTML 的实际字符，生成 woff2 子集 | `<siteRoot>/_astro/fonts` |
-| 7 | `scripts/minify-inline-scripts.ts` | 用 esbuild 压缩 `is:inline` 脚本 | 修改构建后的 HTML |
-| 8 | `scripts/run-pagefind.ts` | 在真实站点根目录建立搜索索引 | `<siteRoot>/pagefind/` |
+| 2 | `scripts/generate-lqips.ts` | 用 sharp 为 `src` + `public` 图片生成 2×2 渐变（跳过 favicon、pio、特效图、音乐） | `src/constants/lqips.json`；自动清理已删除图片的旧记录 |
+| 3 | `astro build` | 渲染全部页面、RSS、OG 图、API JSON | `dist/`；启用 Cloudflare 适配器时为 `dist/client` + `dist/server` |
+| 4 | `scripts/prune-pio-assets.ts` | 按看板娘开关删除未使用的模型/运行时 | 减小产物 |
+| 5 | `scripts/subset-fonts.ts` | 扫描构建后 HTML 的实际字符，生成 woff2 子集 | `<siteRoot>/_astro/fonts` |
+| 6 | `scripts/minify-inline-scripts.ts` | 用 esbuild 压缩 `is:inline` 脚本 | 修改构建后的 HTML |
+| 7 | `scripts/run-pagefind.ts` | 在真实站点根目录建立搜索索引 | `<siteRoot>/pagefind/` |
 
 几个要点：
 
 - LQIP 与 GitHub 卡片数据是**提交到仓库的生成文件**，方便无网络构建时回退；但不要手改。
 - 新增图片后可以单独运行 `pnpm lqips` 更新并提交 `src/constants/lqips.json`。
 - GitHub 卡片刷新失败时会保留缓存；没有缓存则卡片显示回退状态，不会中断构建。
-- VNDB 封面、番剧、MAL、Bilibili 的抓取都发生在构建期；对应页面关闭或账号为空时会跳过。
+- MAL 等媒体页数据的抓取发生在构建期；对应页面关闭或账号为空时会跳过。
 - Pagefind 索引不会出现在 `pnpm dev` 中，因此**开发环境搜索不可用**；请用 `pnpm build` + `pnpm preview` 验证。
 - Cloudflare 构建时产物根目录不同，`scripts/site-root.ts` 会自动选择 `dist/client`，不要硬编码 `dist`。
 
@@ -561,7 +557,6 @@ PUBLIC_SITE_LANG=en pnpm build
 | `scripts/new-dynamic.js` | 以站点时区生成带时间戳的动态文件 |
 | `scripts/generate-github-card-data.ts` | 刷新 GitHub 仓库卡片缓存 |
 | `scripts/generate-lqips.ts` | 生成图片 LQIP |
-| `scripts/generate-vndb-covers.ts` | 下载并压缩 VNDB 封面 |
 | `scripts/prune-pio-assets.ts` | 裁剪未启用的看板娘资源 |
 | `scripts/subset-fonts.ts` | 本地字体子集化 |
 | `scripts/minify-inline-scripts.ts` | 压缩内联脚本 |
@@ -805,7 +800,7 @@ pnpm lint
 4. 内容 schema 只在 `src/content.config.ts` 中定义，不要在页面里复制字段校验。
 5. 站内链接带尾斜杠；图片路径区分 `src/assets`（不带 `/`）与 `public`（带 `/`）。
 6. `lqips.json`、`github-card-data.json` 由脚本生成，不要手改；`icons-data.json` 是图标数据，按需维护。
-7. 不要提交 `dist/`、`.astro/`、`public/vndb-covers/`、`.env*`。
+7. 不要提交 `dist/`、`.astro/`、`.env*`。
 8. 不要把密钥、Token、统计 ID 写入公开配置。
 9. 不要删除 `LICENSE` 中的版权声明。
 10. 改动保持聚焦，不做无关格式化或重构。
