@@ -23,6 +23,11 @@ const { class: className, style, widgetConfig } = Astro.props;
 
 const showTitle = widgetConfig?.showTitle !== false;
 
+// 站点统计显示项开关，未配置时默认显示
+const showCategoryCount = siteConfig.siteStats?.showCategoryCount !== false;
+const showTagCount = siteConfig.siteStats?.showTagCount !== false;
+const showLastActivity = siteConfig.siteStats?.showLastActivity !== false;
+
 // 从配置中获取站点开始日期
 const siteStartDate = siteConfig.siteStartDate || "2025-01-01";
 
@@ -102,16 +107,24 @@ const stats: StatItem[] = [
 		label: i18n(I18nKey.siteStatsPostCount),
 		value: posts.length,
 	},
-	{
-		icon: "material-symbols:folder-outline",
-		label: i18n(I18nKey.siteStatsCategoryCount),
-		value: categories.length,
-	},
-	{
-		icon: "material-symbols:label-outline",
-		label: i18n(I18nKey.siteStatsTagCount),
-		value: tags.length,
-	},
+	...(showCategoryCount
+		? [
+				{
+					icon: "material-symbols:folder-outline",
+					label: i18n(I18nKey.siteStatsCategoryCount),
+					value: categories.length,
+				},
+			]
+		: []),
+	...(showTagCount
+		? [
+				{
+					icon: "material-symbols:label-outline",
+					label: i18n(I18nKey.siteStatsTagCount),
+					value: tags.length,
+				},
+			]
+		: []),
 	{
 		icon: "material-symbols:text-ad-outline-rounded",
 		label: i18n(I18nKey.siteStatsTotalWords),
@@ -126,20 +139,27 @@ const stats: StatItem[] = [
 		dynamic: true,
 		id: "running-days",
 	},
-	{
-		icon: "mingcute:heartbeat-line",
-		label: i18n(I18nKey.siteStatsLastUpdate),
-		value: 0, // 将由客户端更新
-		suffix: i18n(I18nKey.siteStatsDaysAgo).replace("{days}", ""),
-		dynamic: true,
-		id: "last-update",
-	},
+	...(showLastActivity
+		? [
+				{
+					icon: "mingcute:heartbeat-line",
+					label: i18n(I18nKey.siteStatsLastUpdate),
+					value: 0, // 将由客户端更新
+					suffix: i18n(I18nKey.siteStatsDaysAgo).replace("{days}", ""),
+					dynamic: true,
+					id: "last-update",
+				},
+			]
+		: []),
 ];
 
 // 访问量插在「总字数」之后，没有快照文件时保持原样
 if (umamiStats) {
+	const totalWordsIndex = stats.findIndex(
+		(stat) => stat.label === i18n(I18nKey.siteStatsTotalWords),
+	);
 	stats.splice(
-		4,
+		totalWordsIndex + 1,
 		0,
 		{
 			icon: "material-symbols:group-outline",

@@ -126,6 +126,16 @@ export const siteConfig: SiteConfig = {
 	// 站点开始日期，用于统计运行天数
 	siteStartDate: "2026-11-05",
 
+	// 侧边栏站点统计组件显示项开关
+	siteStats: {
+		// 是否显示分类数量
+		showCategoryCount: false,
+		// 是否显示标签数量
+		showTagCount: false,
+		// 是否显示最后活动
+		showLastActivity: false,
+	},
+
 	// 站点时区（IANA 时区字符串），用于格式化 RSS 等构建日期时间等等..
 	// 示例："Asia/Shanghai", "UTC", 如果为空，则按照构建服务器的时区进行时区转换
 	timezone: "Asia/Shanghai",

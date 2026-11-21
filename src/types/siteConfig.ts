@@ -57,6 +57,13 @@ export type SiteConfig = {
 	// 站点开始日期，用于计算运行天数
 	siteStartDate?: string; // 格式: "YYYY-MM-DD"
 
+	// 侧边栏站点统计组件显示项配置
+	siteStats?: {
+		showCategoryCount?: boolean; // 是否显示分类数量，默认 true
+		showTagCount?: boolean; // 是否显示标签数量，默认 true
+		showLastActivity?: boolean; // 是否显示最后活动，默认 true
+	};
+
 	// 可选：站点时区，使用 IANA 时区标识，例如 "Asia/Shanghai"、"UTC"
 	timezone?: string;
 
